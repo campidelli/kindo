@@ -32,7 +32,7 @@ export interface PaymentDetailResponse {
   student_name: string;
   parent_name: string;
   card_last_four: string;
-  status: "PENDING" | "SUCCESS" | "FAILED";
+  status: string;
   transaction_id: string | null;
   error_message: string | null;
   created_at: string;
