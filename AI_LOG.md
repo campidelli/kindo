@@ -419,3 +419,198 @@
 - Updated health check path from `/health` to `/admin/health` to match the new admin router prefix
 - Updated seed path from `/admin/seed` to `/admin/seed` (confirmed correct)
 - Updated frontend `VITE_API_URL` examples to point to deployed endpoint
+
+---
+
+## Session 2 — 2026-04-10
+
+### Prompt 36
+> "Find another suitable card validator lib, it doesn't make sense to do the validation and formatting of it manually"
+
+**AI actions:**
+- Researched alternatives; selected **`creditcardutils`** (lightweight, no ESM/CJS issues in test environments)
+- Installed `creditcardutils` and removed manual regex validation from `PaymentForm.tsx`
+- Used `validateCardNumber`, `validateCardExpiry`, `validateCardCVC` from the library
+- All 16 tests passed
+
+---
+
+### Prompt 37
+> "undo the library part. I want to use https://www.npmjs.com/package/card-validator instead"
+
+**AI actions:**
+- Uninstalled `creditcardutils`, installed `card-validator@10.0.4`
+- Updated imports to `number`, `expirationDate`, `cvv` from `card-validator`
+- Discovered `expirationDate()` requires the full `MM/YY` string, not separate arguments — fixed
+- Removed stale `card-validator` entry from `package.json` (was left from previous attempt)
+- All 16 tests passed
+
+---
+
+### Prompt 38
+> "add the cardholder name field, pre fill it with the parent name"
+
+**AI actions:**
+- Added `cardholder_name: string` to `CardData` interface
+- Added `cardholderName` state, pre-filled from `registration.parent_name`
+- Added required validation ("Enter the cardholder name.")
+- Added the field to the form UI above the card number field
+- Updated `PaymentForm.test.tsx` to expect `cardholder_name: "John Doe"` in the `onConfirm` call
+- All 16 tests passed
+
+---
+
+### Prompt 39
+> "Now wire the payment form with the api. I need a processing payment blocking modal, keep polling the api to get the payment details until the status changes to success. Add a configurable (via env) timeout that closes the modal and displays a message that the payment is taking too long. Also, add an error toast if an error happens during the process"
+
+**AI actions:**
+- Created `ProcessingModal.tsx` — full-screen overlay with spinner, blocks interaction during polling
+- Created `Toast.tsx` — top-right dismissable toast with `error` and `warning` variants
+- Rewrote `App.tsx` to wire the full payment flow:
+  - `POST /api/v1/payments` on form submit
+  - Polls `GET /api/v1/payments/{id}` every 2 seconds via `setInterval`
+  - `status: "success"` → navigates to success screen
+  - `status: "failed"` → shows error toast with `error_message`
+  - Network/API error → shows error toast
+  - Timeout (configurable via `VITE_PAYMENT_TIMEOUT_MS`, default 30s) → shows warning toast
+- Added `VITE_PAYMENT_TIMEOUT_MS=30000` to `.env`
+- Added success screen with checkmark and "Back to trips" button
+- All 16 tests passed
+
+---
+
+### Prompt 40
+> "show the toast on the top right"
+
+**AI actions:**
+- Changed `Toast.tsx` positioning from `bottom-5 right-5` to `top-5 right-5`
+
+---
+
+### Prompt 41
+> "This is the response you are receiving, it should be not timing out" (API returning `status: "success"` lowercase)
+
+**AI actions:**
+- Fixed status comparison: polling used `"SUCCESS"` (uppercase) but API returns `"success"` (lowercase)
+- Updated `PaymentDetailResponse.status` type from `"PENDING" | "SUCCESS" | "FAILED"` to lowercase equivalents
+- Updated both polling comparisons in `App.tsx`
+
+---
+
+### Prompt 42
+> "can you ignore the case?"
+
+**AI actions:**
+- Added `detail.status.toLowerCase()` before comparison so any casing from the API works
+- Changed `PaymentDetailResponse.status` type from union to `string` to reflect the real API contract
+
+---
+
+### Prompt 43
+> "No overload matches this call. The last overload gave the following error. Object literal may only specify known properties, and 'test' does not exist in type 'UserConfigExport'."
+
+**AI output:**
+- Explained the error: `defineConfig` from `vite` doesn't know about the `test` key; need to import from `vitest/config` instead
+- Updated `vite.config.ts` import from `'vite'` to `'vitest/config'`
+- Error resolved, 16 tests still passing
+
+---
+
+### Prompt 44
+> "let's deploy this front end to render"
+
+**AI actions:**
+- Created `frontend/render.yaml` as a Render Static Site blueprint:
+  - `runtime: static`, `rootDir: frontend`, `buildCommand: npm ci && npm run build`, `staticPublishPath: ./dist`
+  - SPA rewrite rule: `/* → /index.html`
+  - Env vars: `VITE_API_URL` and `VITE_PAYMENT_TIMEOUT_MS`
+- Added `VITE_PAYMENT_TIMEOUT_MS` to `.env.example` and `.env.production`
+- Fixed a TypeScript build blocker: removed unused `waitFor` import in `RegistrationForm.test.tsx`
+- Production build passed: 3 files, 216 kB JS
+
+---
+
+### Prompt 45
+> "add the remaining env vars here, and the cors should be from https://kindo-8r9m.onrender.com/"
+
+**AI actions:**
+- Updated `backend/render.yaml` to add all missing env vars: `APP_NAME`, `APP_VERSION`, `DATABASE_PATH`
+- Set `CORS_ORIGINS` to `'["https://kindo-8r9m.onrender.com"]'`
+
+---
+
+### Prompt 46
+> "why am I getting CORS error when I run the application on render?"
+
+**AI analysis and actions:**
+- Root cause: `get_cors_origins()` in `app/core/config.py` hardcoded `"kindo-frontend.onrender.com"` in production, completely ignoring the `CORS_ORIGINS` env var
+- Fixed `get_cors_origins()` to simply `return self.cors_origins`
+- `CORS_ORIGINS` from `render.yaml` is now the single source of truth
+
+---
+
+### Prompt 47
+> "these settings should be getting the values from the environment variables"
+
+**AI actions:**
+- Removed `Path(__file__)` anchor from `database_path` default — replaced with a plain relative string `"app/data/kindo.db"`
+- Changed `env_file` path from `Path(__file__).resolve().parent.parent.parent / ".env"` to `".env"` (relative to working directory, matching Render's working dir)
+- Changed `database_path` type from `Path` to `str` to avoid implicit path resolution
+- All six settings now read cleanly from process environment variables with `.env` as a local fallback
+
+---
+
+### Prompt 48
+> "add one more trip to the auckland aquarium"
+
+**AI actions:**
+- Added Auckland Aquarium trip (Kelly Tarlton's) to `backend/app/data/seed.py`
+- Refactored seed logic to check per-trip by `activity_id` instead of skipping all if any trip exists
+- New trip: cost `$42.00`, date `2026-07-22`, location `Kelly Tarlton's Sea Life Aquarium, Auckland`, school/activity ID `ACT-AQU-2026`
+
+---
+
+### Prompt 49
+> "create a nice PaymentReceipt component, I want something that looks like a EFTPOS receipt"
+
+**AI actions:**
+- Created `frontend/src/components/PaymentReceipt.tsx`:
+  - Pale yellow background (`#fffde7`), monospace font, serrated top/bottom edges via CSS gradient
+  - Sections: header (KINDO + timestamp), `✓ APPROVED` + transaction ID, trip details, student/parent, payment (masked card `**** **** **** XXXX`), total paid
+  - Card masked using `card_last_four` from `PaymentDetailResponse` — full number never displayed
+- Updated `App.tsx` to store `PaymentDetailResponse` in state on success and pass it to `PaymentReceipt`
+- Replaced the plain success screen with `PaymentReceipt`
+- Production build passed
+
+---
+
+### Prompt 50
+> "show a success toast on the top right to indicate the payment has been confirmed"
+
+**AI actions:**
+- Added `"success"` type to `Toast.tsx` with green colour variant (`bg-green-50 / border-green-300 / text-green-800`)
+- Updated `ToastState` type in `App.tsx` to include `"success"`
+- Set toast to `{ message: "Payment confirmed!", type: "success" }` when polling detects success
+- Rendered `<Toast>` alongside `<PaymentReceipt>` on the success screen
+
+---
+
+### Prompt 51
+> "are the unit tests up to date?"
+
+**AI analysis and actions:**
+- Found 3 gaps: missing cardholder validation test, no Toast tests, no PaymentReceipt tests
+- Fixed `PaymentForm.test.tsx`: added `userEvent.clear()` on the pre-filled cardholder field before testing blank-submit, then asserts all 4 validation errors including `"Enter the cardholder name."`
+- Created `Toast.test.tsx` (6 tests): null renders nothing, message text, all three colour variants, dismiss callback
+- Created `PaymentReceipt.test.tsx` (7 tests): trip/location, names, masked card, transaction ID, null transaction ID, total, back button
+- All 29 tests passing across 5 test files
+
+---
+
+### Prompt 52
+> "redo the readme file for the front end, keep it simple, include the assumptions and constraints. Also include the screen flows descriptions and placeholder for the screenshots. Also update the AI log file"
+
+**AI actions:**
+- Replaced boilerplate Vite README with a proper `frontend/README.md` covering: tech stack, getting started, env vars, screen flow diagram, per-screen descriptions with screenshot placeholders, error handling table, assumptions & constraints, deployment URL
+- Updated `AI_LOG.md` with all frontend session entries (Prompts 36–52)
+

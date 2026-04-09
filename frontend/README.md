@@ -1,73 +1,139 @@
-# React + TypeScript + Vite
+# Kindo Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript single-page application for school trip payments, backed by the Kindo FastAPI backend.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Tech Stack
 
-## React Compiler
+- **React 19** with TypeScript
+- **Vite 8** (build + dev server)
+- **Tailwind CSS 4** (utility-first styling)
+- **card-validator** — Luhn-based card number, expiry, and CVV validation
+- **Vitest + Testing Library** — unit and component tests
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd frontend
+npm install
+cp .env.example .env      # set VITE_API_URL if needed
+npm run dev               # http://localhost:5173
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Available Scripts
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Command | Description |
+|---|---|
+| `npm run dev` | Start local dev server with HMR |
+| `npm run build` | Type-check + production build |
+| `npm test` | Run test suite (vitest) |
+| `npm run lint` | ESLint |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_API_URL` | `http://localhost:8000` | Base URL of the backend API |
+| `VITE_PAYMENT_TIMEOUT_MS` | `30000` | How long to poll before showing a "taking too long" warning |
+
+Copy `.env.example` to `.env` for local development. Production values are set in `render.yaml`.
+
+---
+
+## Screen Flow
+
+The app is a linear wizard with four screens managed in `App.tsx`.
+
 ```
+Trips  ──book──▶  Registration  ──continue──▶  Payment  ──submit──▶  Receipt
+                       │                           │
+                    cancel                      cancel
+                       │                           │
+                       ▼                           ▼
+                     Trips                    Registration
+```
+
+### 1 — Trip List
+
+Fetches available trips from `GET /api/v1/trips` and displays them as cards.
+
+_Screenshot placeholder_
+![Trip List](docs/screenshots/01-trip-list.png)
+
+---
+
+### 2 — Registration Form
+
+Collects **student name** and **parent/guardian name** before payment.  
+Both fields are required and trimmed on submit.
+
+_Screenshot placeholder_
+![Registration Form](docs/screenshots/02-registration.png)
+
+---
+
+### 3 — Payment Form
+
+Collects card details with live formatting and validation:
+- **Cardholder name** — pre-filled from parent name, editable
+- **Card number** — formatted in groups of 4, validated via Luhn algorithm
+- **Expiry date** — auto-formatted to `MM/YY`
+- **CVV** — 3 digits
+
+On submit, calls `POST /api/v1/payments` then polls `GET /api/v1/payments/{id}` every 2 seconds. A full-screen **Processing** modal blocks interaction during polling.
+
+_Screenshot placeholder_
+![Payment Form](docs/screenshots/03-payment.png)
+
+---
+
+### 4 — Payment Receipt
+
+Shown on `status: "success"`. Styled as a thermal EFTPOS receipt (pale yellow, monospace font, serrated edges). Displays:
+- Trip title, date, and location
+- Student and parent names
+- Masked card number (`**** **** **** XXXX`)
+- Transaction ID
+- Total paid
+
+A green **"Payment confirmed!"** toast appears in the top-right corner.
+
+_Screenshot placeholder_
+![Payment Receipt](docs/screenshots/04-receipt.png)
+
+---
+
+## Error Handling
+
+| Scenario | Behaviour |
+|---|---|
+| Payment polling returns `failed` | Red error toast with the API's `error_message` |
+| Payment exceeds `VITE_PAYMENT_TIMEOUT_MS` | Amber warning toast — user can retry |
+| Network / API error during polling | Red error toast with error detail |
+| Failed to submit payment | Red error toast |
+
+---
+
+## Assumptions & Constraints
+
+- **One active trip per session.** The wizard does not support a cart or multiple trips.
+- **Card data is never stored client-side.** Only the masked number is displayed on the receipt; full card details are sent once to the backend and not retained.
+- **Polling only** — no WebSocket or webhook support. The frontend polls every 2 seconds until success, failure, or timeout.
+- **Single school.** `school_id` is hardcoded in the backend seed; the frontend has no school-selection step.
+- **No authentication.** Any user can browse trips and submit a payment. Auth is out of scope for this challenge.
+- **No payment retry flow.** If a payment fails, the user navigates back to the trip list and starts over.
+- **Mobile-first layout** with a max-width of `2xl` (672 px). Not optimised for wide desktop layouts.
+- **English (NZ) locale only.** Dates and currency are formatted for `en-NZ`.
+
+---
+
+## Deployment
+
+Deployed as a Render Static Site. See `render.yaml` for the build config.
+
+Production URL: **https://kindo-8r9m.onrender.com**
