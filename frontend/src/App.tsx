@@ -1,13 +1,15 @@
 import { useState } from "react";
 import TripList from "./components/TripList";
 import RegistrationForm, { type RegistrationData } from "./components/RegistrationForm";
+import PaymentForm, { type CardData } from "./components/PaymentForm";
 import type { TripResponse } from "./types/api";
 
-type Screen = "trips" | "registration";
+type Screen = "trips" | "registration" | "payment";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("trips");
   const [selectedTrip, setSelectedTrip] = useState<TripResponse | null>(null);
+  const [registration, setRegistration] = useState<RegistrationData | null>(null);
 
   function handleBook(trip: TripResponse) {
     setSelectedTrip(trip);
@@ -15,8 +17,13 @@ export default function App() {
   }
 
   function handleRegistrationContinue(data: RegistrationData) {
-    // Payment step will go here
-    console.log("Registration data:", data);
+    setRegistration(data);
+    setScreen("payment");
+  }
+
+  function handlePaymentConfirm(data: CardData) {
+    // Processing step will go here
+    console.log("Payment data:", data);
   }
 
   if (screen === "registration" && selectedTrip) {
@@ -25,6 +32,17 @@ export default function App() {
         trip={selectedTrip}
         onContinue={handleRegistrationContinue}
         onCancel={() => setScreen("trips")}
+      />
+    );
+  }
+
+  if (screen === "payment" && selectedTrip && registration) {
+    return (
+      <PaymentForm
+        trip={selectedTrip}
+        registration={registration}
+        onConfirm={handlePaymentConfirm}
+        onCancel={() => setScreen("registration")}
       />
     );
   }
