@@ -2,7 +2,7 @@ from pathlib import Path
 
 from sqlmodel import Session, create_engine
 
-DATABASE_PATH = Path(__file__).resolve().parent.parent / "kindo.db"
+DATABASE_PATH = Path(__file__).resolve().parent.parent / "data" / "kindo.db"
 DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
 engine = create_engine(
