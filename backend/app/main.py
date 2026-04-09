@@ -7,7 +7,7 @@ from sqlmodel import SQLModel
 from app.core.config import settings
 from app.core.database import engine
 from app.core.logging import configure_logging, get_logger
-from app.routers import payments, trips
+from app.routers import admin, payments, trips
 
 logger = get_logger(__name__)
 
@@ -30,10 +30,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.get_cors_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(trips.router)
 app.include_router(payments.router)
+app.include_router(admin.router)
