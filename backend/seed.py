@@ -1,0 +1,31 @@
+"""Seed the database with a sample trip. Run from the backend/ directory:
+
+    python seed.py
+"""
+from sqlmodel import Session, SQLModel, select
+
+from app.database import engine
+from app.models import Trip
+
+SQLModel.metadata.create_all(engine)
+
+with Session(engine) as session:
+    existing = session.exec(select(Trip)).first()
+    if existing is None:
+        sample = Trip(
+            title="Wellington Zoo Field Trip",
+            description=(
+                "An exciting visit to Wellington Zoo where students will learn "
+                "about native New Zealand wildlife and conservation efforts."
+            ),
+            date="2026-06-15",
+            location="Wellington Zoo, 200 Daniell St, Newtown, Wellington",
+            cost=35.00,
+            school_id="SCH-001",
+            activity_id="ACT-ZOO-2026",
+        )
+        session.add(sample)
+        session.commit()
+        print("Seeded sample trip.")
+    else:
+        print("Trips already exist — skipping seed.")
