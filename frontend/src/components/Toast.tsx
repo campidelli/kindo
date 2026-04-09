@@ -1,6 +1,6 @@
 interface Props {
   message: string | null;
-  type: "error" | "warning";
+  type: "error" | "warning" | "success";
   onDismiss: () => void;
 }
 
@@ -10,6 +10,8 @@ export default function Toast({ message, type, onDismiss }: Props) {
   const styles =
     type === "error"
       ? "bg-red-50 border-red-300 text-red-800"
+      : type === "success"
+      ? "bg-green-50 border-green-300 text-green-800"
       : "bg-amber-50 border-amber-300 text-amber-800";
 
   return (

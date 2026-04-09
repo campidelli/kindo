@@ -4,7 +4,8 @@ import RegistrationForm, { type RegistrationData } from "./components/Registrati
 import PaymentForm, { type CardData } from "./components/PaymentForm";
 import ProcessingModal from "./components/ProcessingModal";
 import Toast from "./components/Toast";
-import type { TripResponse } from "./types/api";
+import PaymentReceipt from "./components/PaymentReceipt";
+import type { TripResponse, PaymentDetailResponse } from "./types/api";
 import { createPayment, getPayment } from "./api/payments";
 import { ApiError } from "./api/client";
 
@@ -15,7 +16,7 @@ type Screen = "trips" | "registration" | "payment" | "success";
 
 interface ToastState {
   message: string;
-  type: "error" | "warning";
+  type: "error" | "warning" | "success";
 }
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
   const [registration, setRegistration] = useState<RegistrationData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [paymentDetail, setPaymentDetail] = useState<PaymentDetailResponse | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -72,6 +74,8 @@ export default function App() {
           if (normalizedStatus === "success") {
             stopPolling();
             setIsProcessing(false);
+            setPaymentDetail(detail);
+            setToast({ message: "Payment confirmed!", type: "success" });
             setScreen("success");
           } else if (normalizedStatus === "failed") {
             stopPolling();
@@ -126,34 +130,16 @@ export default function App() {
     );
   }
 
-  if (screen === "success" && selectedTrip && registration) {
+  if (screen === "success" && selectedTrip && paymentDetail) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-white border-b border-gray-200">
-          <div className="mx-auto max-w-2xl px-4 py-4">
-            <h1 className="text-xl font-bold text-green-700">Kindo</h1>
-            <p className="text-xs text-gray-500">School Payments</p>
-          </div>
-        </header>
-        <main className="mx-auto max-w-2xl px-4 py-12 text-center">
-          <div className="inline-flex size-16 items-center justify-center rounded-full bg-green-100 mb-4">
-            <svg className="size-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-1">Payment successful!</h2>
-          <p className="text-sm text-gray-500 mb-1">{selectedTrip.title}</p>
-          <p className="text-sm text-gray-500 mb-6">
-            {registration.student_name} · Parent: {registration.parent_name}
-          </p>
-          <button
-            onClick={() => { setScreen("trips"); setSelectedTrip(null); setRegistration(null); }}
-            className="rounded-lg bg-green-600 px-6 py-2 text-sm font-medium text-white hover:bg-green-700 transition-colors"
-          >
-            Back to trips
-          </button>
-        </main>
-      </div>
+      <>
+        <PaymentReceipt
+          trip={selectedTrip}
+          payment={paymentDetail}
+          onDone={() => { setScreen("trips"); setSelectedTrip(null); setRegistration(null); setPaymentDetail(null); }}
+        />
+        <Toast message={toast?.message ?? null} type={toast?.type ?? "success"} onDismiss={() => setToast(null)} />
+      </>
     );
   }
 

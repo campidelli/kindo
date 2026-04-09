@@ -46,8 +46,13 @@ describe("PaymentForm", () => {
   it("shows validation errors when submitted empty", async () => {
     renderForm();
 
+    // Clear the pre-filled cardholder name before submitting
+    const cardholderInput = screen.getByLabelText(/cardholder name/i);
+    await userEvent.clear(cardholderInput);
+
     await userEvent.click(screen.getByRole("button", { name: /pay/i }));
 
+    expect(screen.getByText("Enter the cardholder name.")).toBeInTheDocument();
     expect(screen.getByText("Enter a valid card number.")).toBeInTheDocument();
     expect(screen.getByText("Enter a valid expiry date (MM/YY).")).toBeInTheDocument();
     expect(screen.getByText("Enter a valid 3-digit CVV.")).toBeInTheDocument();
