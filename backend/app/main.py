@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel
 
-from app.database import engine
+from app.core.database import engine
 from app.routers import payments, trips
 
 

@@ -5,28 +5,6 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 
 
-# ---------------------------------------------------------------------------
-# Trip schemas
-# ---------------------------------------------------------------------------
-
-class TripResponse(BaseModel):
-    id: uuid.UUID
-    title: str
-    description: str
-    date: datetime
-    location: str
-    cost: float
-    school_id: str
-    activity_id: str
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-# ---------------------------------------------------------------------------
-# Payment schemas
-# ---------------------------------------------------------------------------
-
 class PaymentRequest(BaseModel):
     trip_id: uuid.UUID
     student_name: str = Field(..., min_length=1)
@@ -58,10 +36,22 @@ class PaymentRequest(BaseModel):
         return v
 
 
-class PaymentResponse(BaseModel):
-    success: bool
+class PaymentCreatedResponse(BaseModel):
     payment_id: uuid.UUID
+    status: str
+    trip_id: uuid.UUID
+    created_at: datetime
+
+
+class PaymentDetailResponse(BaseModel):
+    id: uuid.UUID
+    trip_id: uuid.UUID
+    student_name: str
+    parent_name: str
+    card_last_four: str
+    status: str
     transaction_id: str | None = None
     error_message: str | None = None
+    created_at: datetime
 
     model_config = {"from_attributes": True}

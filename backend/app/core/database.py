@@ -1,13 +1,15 @@
+from pathlib import Path
+
 from sqlmodel import Session, create_engine
 
-DATABASE_URL = "sqlite:///./kindo.db"
+DATABASE_PATH = Path(__file__).resolve().parent.parent / "kindo.db"
+DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
 
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False},
 )
 
-
-def get_db():
+def get_session():
     with Session(engine) as session:
         yield session

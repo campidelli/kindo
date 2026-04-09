@@ -143,3 +143,39 @@
 - Appended all missing entries (Prompts 7–11) to this log
 
 ---
+
+### Prompt 13
+> "ALl http status codes should use HttpStatus lib instead of hardcoded values"
+
+**AI actions:**
+- Replaced hardcoded HTTP status integers in both routers with FastAPI `status` constants
+- Updated trip not-found responses to use `status.HTTP_404_NOT_FOUND`
+- Updated payment creation response to use a named status constant instead of a raw integer
+
+---
+
+### Prompt 14
+> "service layers shouldn't be aware of schema dtos. Use primitive params instead"
+
+**AI actions:**
+- Removed DTO/schema coupling from the payment service signature
+- Updated the payment router to unpack the request DTO and pass only primitive values into the service layer
+- Preserved the router as the API boundary and kept the service layer independent of request schemas
+
+---
+
+### Prompt 15
+> "Our payment API create method will generate a payment id, create the payment in the db with status pending and trigger a fastapi background_task that calls the legacy payment processor. That task will update the db when the payment is finished. The create endpoint should return 201 with the paymentId and other relevant information. We need an API to fetch the payment by id"
+
+**AI actions:**
+- Added `PENDING` to `PaymentStatus` in `backend/app/models.py`
+- Created `backend/app/repositories/` with `TripRepository` and `PaymentRepository`
+- Added `backend/app/services/trip_service.py` and rewrote `backend/app/services/payment_service.py` as a repository-backed service with background-processing support
+- Changed `POST /api/v1/payments` to create a pending payment record first, enqueue a FastAPI `BackgroundTasks` job, and return `201 Created`
+- Added `GET /api/v1/payments/{payment_id}` to fetch the current payment state
+- Introduced `PaymentCreatedResponse` and `PaymentDetailResponse` in `backend/app/schemas.py`
+- Slimmed the trips router to use `TripService` as well
+- Fixed SQLite path resolution in `backend/app/database.py` so the DB file is stable regardless of the process working directory
+- Verified end to end: `POST /api/v1/payments` returned `201` with `status: "pending"`, and `GET /api/v1/payments/{id}` returned the updated payment with final status and transaction data
+
+---
