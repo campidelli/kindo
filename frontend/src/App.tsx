@@ -1,10 +1,32 @@
+import { useState } from "react";
 import TripList from "./components/TripList";
+import RegistrationForm, { type RegistrationData } from "./components/RegistrationForm";
 import type { TripResponse } from "./types/api";
 
+type Screen = "trips" | "registration";
+
 export default function App() {
+  const [screen, setScreen] = useState<Screen>("trips");
+  const [selectedTrip, setSelectedTrip] = useState<TripResponse | null>(null);
+
   function handleBook(trip: TripResponse) {
-    // Registration step will go here
-    console.log("Booking trip:", trip.id);
+    setSelectedTrip(trip);
+    setScreen("registration");
+  }
+
+  function handleRegistrationContinue(data: RegistrationData) {
+    // Payment step will go here
+    console.log("Registration data:", data);
+  }
+
+  if (screen === "registration" && selectedTrip) {
+    return (
+      <RegistrationForm
+        trip={selectedTrip}
+        onContinue={handleRegistrationContinue}
+        onCancel={() => setScreen("trips")}
+      />
+    );
   }
 
   return (
