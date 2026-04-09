@@ -179,3 +179,113 @@
 - Verified end to end: `POST /api/v1/payments` returned `201` with `status: "pending"`, and `GET /api/v1/payments/{id}` returned the updated payment with final status and transaction data
 
 ---
+
+### Prompt 16
+> "I have moved some components around, validate those changes"
+
+**AI actions:**
+- Verified import paths after file reorganization
+- Found incorrect imports using `from backend.app.core.database` in routers and main.py
+- Fixed all three files to use `from app.core.database` instead
+- Created `app/integrations/` package with `legacy_payment_processor.py` stub
+- Fixed `payment_service.py` to import from the new integrations package
+- Validated all imports resolve correctly and the app initializes
+
+---
+
+### Prompt 17
+> "create a dataclass to be passed here instead of these primitives"
+
+**AI actions:**
+- Created `CreatePaymentData` dataclass with trip_id, student_name, parent_name, card_number, expiry_date, cvv
+- Updated `PaymentService.create_pending_payment()` to accept `data: CreatePaymentData` instead of individual parameters
+- Updated the payments router to instantiate and pass `CreatePaymentData` to the service
+- Validated imports and app initialization
+
+---
+
+### Prompt 18
+> "why there are two kindo.db? one in the data folder and another outside of it?"
+
+**AI actions:**
+- Identified root cause: database path in `app/core/database.py` was resolving to `app/kindo.db` instead of `app/data/kindo.db`
+- Fixed path resolution from `Path(__file__).resolve().parent.parent / "kindo.db"` to `Path(__file__).resolve().parent.parent / "data" / "kindo.db"`
+
+---
+
+### Prompt 19
+> "I want that kindo.db location be in the data folder"
+
+**AI actions:**
+- Already implemented; database now correctly resolves to `backend/app/data/kindo.db`
+
+---
+
+### Prompt 20
+> "do I need this file?" (referring to `app/__init__.py`)
+
+**AI output:**
+- Confirmed that `app/__init__.py` is necessary; it marks the directory as a Python package and allows the import system to resolve `from app.x import y` statements
+- Same applies to all `__init__.py` files in subfolders
+
+---
+
+### Prompt 21
+> "add a .env file to send relevant config to the application and add logs to the application too"
+
+**AI actions:**
+- Added `pydantic-settings>=2.9.1` to `requirements.txt` and installed it
+- Created `app/core/config.py` with `Settings` dataclass that reads from `.env` file
+  - Configurable: `app_name`, `app_version`, `log_level`, `cors_origins`, `database_path`
+- Created `app/core/logging.py` with `configure_logging()` and `get_logger()` helpers
+- Created `.env` with default development settings
+- Created `.env.example` as a template for teammates
+- Updated `app/main.py` to:
+  - Import and use `settings` for app title, version, CORS origins
+  - Call `configure_logging()` in the startup lifespan
+  - Log startup messages including database path
+- Updated `app/services/payment_service.py` to:
+  - Import logger and use `get_logger(__name__)`
+  - Log successful payment creation with PENDING status
+  - Log payment processing results (SUCCESS/FAILED)
+  - Log warnings for failed payment processor calls
+- Updated `app/core/database.py` to use `settings.database_path` instead of hardcoded path
+
+---
+
+### Prompt 22
+> "add logger.error when we raise errors"
+
+**AI actions:**
+- Added `logger.error()` calls in `payment_service.py` before each exception raise:
+  - `create_pending_payment`: logs when trip not found
+  - `process_pending_payment`: logs when payment not found, logs when trip not found during processing (includes both trip ID and payment ID)
+
+---
+
+### Prompt 23
+> "remove this file from .gitignore" (referring to `.env.example`)
+
+**AI actions:**
+- Changed `.gitignore` from `env.*` to `env.local`
+- Now `.env.example` is tracked by git while `.env` (with secrets) remains ignored
+
+---
+
+### Prompt 24
+> "write unit tests for the services not for routers or repositories"
+
+**AI actions:**
+- Added `pytest>=8.3.5` and `pytest-asyncio>=0.26.0` to `requirements.txt` and installed
+- Created `pytest.ini` with `asyncio_mode = auto`
+- Created `tests/` package with `__init__.py` and `conftest.py`
+- Added factory helpers in `conftest.py`: `make_trip()`, `make_payment()`, `mock_session()`
+- Created `tests/test_trip_service.py` with 4 tests covering `get_all()` and `get_by_id()` (with all branches)
+- Created `tests/test_payment_service.py` with 9 tests covering:
+  - `create_pending_payment()`: creates with PENDING status, extracts card last 4, raises when trip not found
+  - `get_payment_by_id()`: found, not found
+  - `process_pending_payment()`: updates to SUCCESS, updates to FAILED with error message, raises when payment not found, raises when trip not found during processing
+- All repositories and legacy processor mocked — no database or network I/O required
+- Ran `pytest -v`: **13/13 tests passing**
+
+---
