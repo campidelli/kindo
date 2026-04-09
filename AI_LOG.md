@@ -84,3 +84,62 @@
 - Corrected the model reference in this file to `GPT-5.4`
 
 ---
+
+### Prompt 7
+> "add a gitignore file to backend folder"
+
+**AI actions:**
+- Created `backend/.gitignore` ignoring `.venv/`, `*.db`, `__pycache__`, build artifacts, `.env` files, and IDE folders
+
+---
+
+### Prompt 8
+> "this should be an enum, PaymentStatus" (referring to `Payment.status: str`)
+
+**AI actions:**
+- Added `PaymentStatus(str, enum.Enum)` with `SUCCESS = "success"` and `FAILED = "failed"` to `backend/app/models.py`
+- Changed `Payment.status` type from `str` to `PaymentStatus`
+- Updated `backend/app/routers/payments.py` to use `PaymentStatus.SUCCESS` / `PaymentStatus.FAILED` instead of raw strings
+
+---
+
+### Prompt 9
+> "Create a BaseModel with id uuidv4 and created_at, make the other entities inherit from it"
+
+**AI actions:**
+- Added `BaseModel(SQLModel)` to `backend/app/models.py` with `id: uuid.UUID` (default `uuid4`) and `created_at: datetime`
+- Removed duplicate `id` and `created_at` fields from `Trip` and `Payment`; both now inherit from `BaseModel`
+- Updated `Payment.trip_id` from `int` to `uuid.UUID`
+- Updated `backend/app/schemas.py`: `TripResponse.id`, `PaymentRequest.trip_id`, `PaymentResponse.payment_id` all changed to `uuid.UUID`
+- Updated `backend/app/routers/trips.py`: `trip_id` path param changed to `uuid.UUID`
+- Dropped and re-seeded the SQLite DB; verified UUID ids in API response
+
+---
+
+### Prompt 10
+> "all dates must be datetime" (referring to `Trip.date: str`)
+
+**AI actions:**
+- Changed `Trip.date` from `str` to `datetime` in `backend/app/models.py`
+- Updated `TripResponse.date` from `str` to `datetime` in `backend/app/schemas.py`
+- Updated `backend/seed.py` to use `datetime(2026, 6, 15)` instead of the ISO string
+- Dropped and re-seeded; confirmed `date` serialises as `"2026-06-15T00:00:00"`
+
+---
+
+### Prompt 11
+> "utcnow is deprecated."
+
+**AI actions:**
+- Replaced `default_factory=datetime.utcnow` with `default_factory=lambda: datetime.now(timezone.utc)` in `backend/app/models.py`
+- Added `timezone` to the `datetime` import in both `backend/app/models.py` and `backend/seed.py`
+
+---
+
+### Prompt 12
+> "dont forget to update the ai log"
+
+**AI actions:**
+- Appended all missing entries (Prompts 7–11) to this log
+
+---

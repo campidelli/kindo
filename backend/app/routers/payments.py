@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 
 from app.database import get_db
-from app.models import Payment, Trip
+from app.models import Payment, PaymentStatus, Trip
 from app.schemas import PaymentRequest, PaymentResponse
 from app.services import payment_service
 
@@ -37,7 +37,7 @@ async def create_payment(body: PaymentRequest, db: DbDep):
         student_name=body.student_name,
         parent_name=body.parent_name,
         card_last_four=card_last_four,
-        status="success" if result.success else "failed",
+        status=PaymentStatus.SUCCESS if result.success else PaymentStatus.FAILED,
         transaction_id=result.transaction_id,
         error_message=result.error_message,
     )

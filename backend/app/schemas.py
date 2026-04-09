@@ -1,4 +1,5 @@
 import re
+import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
@@ -9,10 +10,10 @@ from pydantic import BaseModel, Field, field_validator
 # ---------------------------------------------------------------------------
 
 class TripResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     title: str
     description: str
-    date: str
+    date: datetime
     location: str
     cost: float
     school_id: str
@@ -27,7 +28,7 @@ class TripResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class PaymentRequest(BaseModel):
-    trip_id: int
+    trip_id: uuid.UUID
     student_name: str = Field(..., min_length=1)
     parent_name: str = Field(..., min_length=1)
     card_number: str = Field(..., description="16-digit card number")
@@ -59,7 +60,7 @@ class PaymentRequest(BaseModel):
 
 class PaymentResponse(BaseModel):
     success: bool
-    payment_id: int
+    payment_id: uuid.UUID
     transaction_id: str | None = None
     error_message: str | None = None
 

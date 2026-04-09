@@ -1,3 +1,4 @@
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,7 +19,7 @@ def list_trips(db: DbDep):
 
 
 @router.get("/{trip_id}", response_model=TripResponse)
-def get_trip(trip_id: int, db: DbDep):
+def get_trip(trip_id: uuid.UUID, db: DbDep):
     trip = db.get(Trip, trip_id)
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip not found.")

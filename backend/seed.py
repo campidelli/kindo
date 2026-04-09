@@ -2,6 +2,8 @@
 
     python seed.py
 """
+from datetime import datetime, timezone
+
 from sqlmodel import Session, SQLModel, select
 
 from app.database import engine
@@ -18,7 +20,7 @@ with Session(engine) as session:
                 "An exciting visit to Wellington Zoo where students will learn "
                 "about native New Zealand wildlife and conservation efforts."
             ),
-            date="2026-06-15",
+            date=datetime(2026, 6, 15),
             location="Wellington Zoo, 200 Daniell St, Newtown, Wellington",
             cost=35.00,
             school_id="SCH-001",
