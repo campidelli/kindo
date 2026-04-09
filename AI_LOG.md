@@ -289,3 +289,133 @@
 - Ran `pytest -v`: **13/13 tests passing**
 
 ---
+
+### Prompt 25
+> "let's add some integration tests now"
+
+**AI actions:**
+- Added `httpx>=0.28.1` to `requirements.txt` and installed
+- Added `conftest.py` `client` fixture using `TestClient` with in-memory SQLite database (overrides `get_session` dependency)
+- Created `tests/test_trips_integration.py` with 4 tests:
+  - `GET /api/v1/trips` returns 200 with empty list on clean DB
+  - `GET /api/v1/trips/{id}` returns 404 for unknown UUID
+  - `GET /api/v1/trips` returns list with seeded trip
+  - `GET /api/v1/trips/{id}` returns seeded trip by ID
+- Created `tests/test_payments_integration.py` with 8 tests:
+  - `POST /api/v1/payments` returns 201 with PENDING status
+  - `POST /api/v1/payments` returns 404 when trip not found
+  - `POST /api/v1/payments` returns 422 when body is missing required fields
+  - `GET /api/v1/payments/{id}` returns 404 for unknown UUID
+  - `GET /api/v1/payments/{id}` returns PENDING payment just after creation
+  - Full background task flow: POST creates PENDING, background task runs, GET returns SUCCESS or FAILED
+- Ran `pytest -v`: **25/25 tests passing in ~0.3s**
+
+---
+
+### Prompt 26
+> "add a new endpoint to retry the payment via paymentId"
+
+**AI actions:**
+- Added `PATCH /api/v1/payments/{payment_id}/retry` endpoint to `app/routers/payments.py`
+- Returns 404 if payment not found
+- Returns 409 if payment is not in FAILED status
+- Creates a new background task to reprocess the payment
+- Returns 200 with the current payment state
+- Added unit test for the retry service logic in `tests/test_payment_service.py`
+- Added integration tests for the retry endpoint in `tests/test_payments_integration.py`
+- All tests passing
+
+---
+
+### Prompt 27
+> "undo it, If I need I create a new payment"
+
+**AI actions:**
+- Removed `PATCH /api/v1/payments/{payment_id}/retry` endpoint from `app/routers/payments.py`
+- Removed retry-related unit and integration tests
+- Reverted to 25/25 tests passing
+
+---
+
+### Prompt 28
+> "I want to deploy this backend to some free service, what do you suggest?"
+
+**AI output:**
+- Compared Render.com, Fly.io, Vercel, Netlify, and Heroku
+- Recommended **Render.com** as the best fit: free tier for web services, auto-deploy from GitHub, supports Python natively, minimal configuration required
+
+---
+
+### Prompt 29
+> "I also need to deploy the frontend...if I could use one platform, it would be ideal"
+
+**AI output:**
+- Confirmed Render.com handles both: Web Service for FastAPI backend, Static Site (free, unlimited) for frontend
+- Outlined CORS configuration needed to connect the two services
+
+---
+
+### Prompt 30
+> "what about (Vercel, Netlify, Heroku?)"
+
+**AI output:**
+- Compared all four platforms in detail for Python + frontend support
+- Reaffirmed Render.com recommendation: only platform with truly free backend (Python) + frontend static site
+
+---
+
+### Prompt 31
+> "how can I integrate render.com to my app?"
+
+**AI output:**
+- Provided step-by-step Render.com integration guide:
+  - Create Web Service on Render, connect GitHub repo
+  - Configure build/start commands, environment variables
+  - Created `backend/render.yaml` deployment config (Python 3.13, auto-build/start, env vars)
+
+---
+
+### Prompt 32
+> "Start implementation"
+
+**AI actions:**
+- Updated `render.yaml` to add `ENVIRONMENT=production` env var
+- Updated `app/core/config.py` to add `environment` field and `get_cors_origins()` method:
+  - Development: returns `["*"]`
+  - Production: restricts to specific frontend URLs
+- Updated `app/main.py` to call `settings.get_cors_origins()` instead of `settings.cors_origins`
+- Updated `.env.example` with `ENVIRONMENT` variable documentation
+- Created `RENDER_DEPLOYMENT.md` — comprehensive step-by-step deployment guide for backend and frontend
+
+---
+
+### Prompt 33
+> "I need to run the seed after the deployment, how do I do it?"
+
+**AI actions:**
+- Added `POST /admin/seed` endpoint to `app/main.py` — triggers `app/data/seed.py` via HTTP after deployment
+- Added `GET /health` endpoint for monitoring/load balancers
+- Updated `RENDER_DEPLOYMENT.md` to document post-deployment seed curl command
+
+---
+
+### Prompt 34
+> "add a proper route file for seeding"
+
+**AI actions:**
+- Created `app/routers/admin.py` with dedicated admin router (tags: `["admin"]`)
+  - `POST /seed` — triggers database seeding
+  - `GET /health` — health check endpoint
+- Updated `app/main.py` to import `admin` router and register with `/admin` prefix
+- Removed inline endpoint definitions from `main.py`
+
+---
+
+### Prompt 35
+> "update the endpoint to kindo-api-3y26.onrender.com and the correct paths"
+
+**AI actions:**
+- Updated all placeholder URLs in `RENDER_DEPLOYMENT.md` from `kindo-api.onrender.com` to `kindo-api-3y26.onrender.com`
+- Updated health check path from `/health` to `/admin/health` to match the new admin router prefix
+- Updated seed path from `/admin/seed` to `/admin/seed` (confirmed correct)
+- Updated frontend `VITE_API_URL` examples to point to deployed endpoint
