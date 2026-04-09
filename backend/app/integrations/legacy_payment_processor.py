@@ -75,7 +75,7 @@ class LegacyPaymentProcessor:
             )
 
         # Simulate processing time
-        time.sleep(30)
+        time.sleep(1.5)
 
         # Simulate occasional payment failures
         if random.random() < 0.1: # 10% chance of failure
