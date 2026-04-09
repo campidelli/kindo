@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: kindo-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://kindo-api-3y26.onrender.com
+      - key: VITE_PAYMENT_TIMEOUT_MS
+        value: "30000"
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
