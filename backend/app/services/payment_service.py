@@ -6,10 +6,12 @@ from sqlmodel import Session
 
 from app.integrations.legacy_payment_processor import LegacyPaymentProcessor
 from app.core.database import engine
+from app.core.logging import get_logger
 from app.models import Payment, PaymentStatus
 from app.repositories.payment_repository import PaymentRepository
 from app.repositories.trip_repository import TripRepository
 
+logger = get_logger(__name__)
 _processor = LegacyPaymentProcessor()
 
 class TripNotFoundError(Exception):
@@ -36,9 +38,10 @@ class PaymentService:
     def create_pending_payment(self, data: PaymentData) -> Payment:
         trip = self.trip_repository.get_by_id(data.trip_id)
         if trip is None:
+            logger.error("Trip %s not found", data.trip_id)
             raise TripNotFoundError()
 
-        return self.payment_repository.create(
+        payment = self.payment_repository.create(
             Payment(
                 id=uuid.uuid4(),
                 trip_id=trip.id,
@@ -48,6 +51,8 @@ class PaymentService:
                 status=PaymentStatus.PENDING,
             )
         )
+        logger.info("Payment %s created with PENDING status for trip %s", payment.id, trip.id)
+        return payment
 
     def get_payment_by_id(self, payment_id: uuid.UUID) -> Payment | None:
         return self.payment_repository.get_by_id(payment_id)
@@ -55,9 +60,11 @@ class PaymentService:
     async def process_pending_payment(self, data: PaymentData) -> Payment:
         payment = self.payment_repository.get_by_id(data.payment_id)
         if payment is None:
+            logger.error("Payment %s not found during processing", data.payment_id)
             raise PaymentNotFoundError()
         trip = self.trip_repository.get_by_id(payment.trip_id)
         if trip is None:
+            logger.error("Trip %s not found during payment processing for payment %s", payment.trip_id, data.payment_id)
             raise TripNotFoundError()
 
         payment_data = {
@@ -72,11 +79,16 @@ class PaymentService:
         }
         result = await asyncio.to_thread(_processor.process_payment, payment_data)
 
+        status = PaymentStatus.SUCCESS if result.success else PaymentStatus.FAILED
+        logger.info("Payment %s processed with status %s", data.payment_id, status.value)
+        if not result.success:
+            logger.warning("Payment %s failed: %s", data.payment_id, result.error_message)
+
         with Session(engine) as session:
             repository = PaymentRepository(session)
             payment = repository.update_result(
                 payment_id=payment.id,
-                status=PaymentStatus.SUCCESS if result.success else PaymentStatus.FAILED,
+                status=status,
                 transaction_id=result.transaction_id,
                 error_message=result.error_message,
             )

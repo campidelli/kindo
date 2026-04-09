@@ -1,9 +1,8 @@
-from pathlib import Path
-
 from sqlmodel import Session, create_engine
 
-DATABASE_PATH = Path(__file__).resolve().parent.parent / "data" / "kindo.db"
-DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+from app.core.config import settings
+
+DATABASE_URL = f"sqlite:///{settings.database_path}"
 
 engine = create_engine(
     DATABASE_URL,
