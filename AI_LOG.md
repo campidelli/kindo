@@ -638,3 +638,51 @@
 - Updated test count in `backend/README.md` from 25 to 28 (15 unit, 13 integration)
 - Updated `AI_LOG.md` (this entry)
 
+---
+
+### Prompt 55
+> "I need to update the page title for the frontend, it currently says 'frontend'. Also, remove assets, pages and other resources that are not used by the app at this stage"
+
+**AI actions:**
+- Updated `<title>` in `frontend/index.html` from `frontend` to `Kindo — School Payments`
+- Deleted unused asset files: `src/assets/hero.png`, `src/assets/react.svg`, `src/assets/vite.svg`, `public/icons.svg`
+- Kept `public/favicon.svg` (referenced in `index.html`)
+
+---
+
+### Prompt 56
+> "add a basic readme file to the repo root, put links to the specific backend and frontend readmes."
+
+**AI actions:**
+- Created `README.md` at the repo root with a one-line description and links to `backend/README.md`, `frontend/README.md`, and `AI_LOG.md`
+
+---
+
+### Prompt 57
+> "update frontend's readme to show the screen shots added to docs folder"
+
+**AI actions:**
+- Located screenshots `docs/screen1.png` through `docs/screen4.png` in `frontend/docs/`
+- Replaced all four `_Screenshot placeholder_` blocks in `frontend/README.md` with the correct image paths
+
+---
+
+### Prompt 58
+> "I think this readme can have more info. Add the demo url for both backend swagger docs and front end endpoint. Add a brief description of all the capabilities a section about constraints and assumptions and a section about next steps (if we would make this app production ready)"
+
+**AI actions:**
+- Rewrote `README.md` at the repo root with:
+  - **Live Demo** table — frontend URL and backend Swagger docs URL
+  - **Capabilities** — trip browsing, full payment wizard, all API endpoints, security highlights
+  - **Constraints & Assumptions** — SQLite limits, no auth, stub processor, polling model, NZ locale
+  - **Next Steps** — grouped into Infrastructure, Security, Reliability, and Product sections
+  - **Detailed Documentation** — links to backend README, frontend README, and AI log
+
+---
+
+### Prompt 59
+> "update the ai log"
+
+**AI actions:**
+- Appended Prompts 55–59 to this log
+
