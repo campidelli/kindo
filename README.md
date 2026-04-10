@@ -13,6 +13,14 @@ A school trip payment platform that lets parents browse available trips and pay 
 
 ---
 
+## Detailed Documentation
+
+- [Backend README](backend/README.md) — setup, architecture, API reference, testing
+- [Frontend README](frontend/README.md) — setup, screen flow, screenshots, component overview
+- [AI Log](AI_LOG.md) — prompts and decisions made during AI-assisted development
+
+---
+
 ## Capabilities
 
 **Trip browsing**
@@ -86,12 +94,3 @@ A school trip payment platform that lets parents browse available trips and pay 
 - Payment history and receipt re-download
 - Email confirmation on successful payment
 - Admin dashboard to manage trips, view all payments, and issue refunds
-
----
-
-## Detailed Documentation
-
-- [Backend README](backend/README.md) — setup, architecture, API reference, testing
-- [Frontend README](frontend/README.md) — setup, screen flow, screenshots, component overview
-- [AI Log](AI_LOG.md) — prompts and decisions made during AI-assisted development
-
