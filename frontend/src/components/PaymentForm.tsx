@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { number as validateCardNumber, expirationDate as validateExpiry, cvv as validateCVV } from "card-validator";
 import type { TripResponse } from "../types/api";
 import type { RegistrationData } from "./RegistrationForm";
@@ -39,6 +39,10 @@ export default function PaymentForm({ trip, registration, onConfirm, onCancel }:
   const [expiryDate, setExpiryDate] = useState("");
   const [cvv, setCvv] = useState("");
   const [errors, setErrors] = useState<CardErrors>({});
+
+  const cardNumberRef = useRef<HTMLInputElement>(null);
+  const expiryRef = useRef<HTMLInputElement>(null);
+  const cvvRef = useRef<HTMLInputElement>(null);
 
   function validate(): boolean {
     const next: CardErrors = {};
@@ -150,11 +154,16 @@ export default function PaymentForm({ trip, registration, onConfirm, onCancel }:
               </label>
               <input
                 id="card_number"
+                ref={cardNumberRef}
                 type="text"
                 inputMode="numeric"
                 placeholder="1234 5678 9012 3456"
                 value={cardNumber}
-                onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                onChange={(e) => {
+                  const formatted = formatCardNumber(e.target.value);
+                  setCardNumber(formatted);
+                  if (formatted.length === 19) expiryRef.current?.focus();
+                }}
                 className={`w-full rounded-lg border px-3 py-2 text-sm font-mono outline-none transition-colors focus:ring-2 focus:ring-green-500 ${
                   errors.card_number ? "border-red-400 bg-red-50" : "border-gray-300 bg-white"
                 }`}
@@ -175,11 +184,16 @@ export default function PaymentForm({ trip, registration, onConfirm, onCancel }:
                 </label>
                 <input
                   id="expiry_date"
+                  ref={expiryRef}
                   type="text"
                   inputMode="numeric"
                   placeholder="MM/YY"
                   value={expiryDate}
-                  onChange={(e) => setExpiryDate(formatExpiry(e.target.value))}
+                  onChange={(e) => {
+                    const formatted = formatExpiry(e.target.value);
+                    setExpiryDate(formatted);
+                    if (formatted.length === 5) cvvRef.current?.focus();
+                  }}
                   className={`w-full rounded-lg border px-3 py-2 text-sm font-mono outline-none transition-colors focus:ring-2 focus:ring-green-500 ${
                     errors.expiry_date ? "border-red-400 bg-red-50" : "border-gray-300 bg-white"
                   }`}
@@ -198,6 +212,7 @@ export default function PaymentForm({ trip, registration, onConfirm, onCancel }:
                 </label>
                 <input
                   id="cvv"
+                  ref={cvvRef}
                   type="text"
                   inputMode="numeric"
                   placeholder="123"

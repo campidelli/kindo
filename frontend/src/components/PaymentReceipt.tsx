@@ -17,9 +17,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function Divider() {
   return (
-    <p className="my-3 select-none overflow-hidden tracking-widest text-stone-400">
-      {"- ".repeat(20)}
-    </p>
+    <div className="my-3 w-full border-t border-dashed border-stone-300" />
   );
 }
 
@@ -49,23 +47,9 @@ export default function PaymentReceipt({ trip, payment, onDone }: Props) {
     <div className="flex min-h-screen flex-col items-center bg-stone-100 px-4 py-10">
       {/* Receipt paper */}
       <div
-        className="w-full max-w-sm font-mono text-xs leading-relaxed shadow-xl"
+        className="w-full max-w-sm font-mono text-xs leading-relaxed shadow-[0_0_40px_rgba(0,0,0,0.18)]"
         style={{ backgroundColor: "#fffde7" }}
       >
-        {/* Top serrated edge */}
-        <div
-          className="h-4 w-full"
-          style={{
-            background:
-              "linear-gradient(-45deg, #fffde7 25%, transparent 25%) 0 0," +
-              "linear-gradient(45deg, #fffde7 25%, transparent 25%) 0 0," +
-              "linear-gradient(-45deg, transparent 75%, #fffde7 75%)," +
-              "linear-gradient(45deg, transparent 75%, #fffde7 75%)",
-            backgroundSize: "16px 16px",
-            backgroundColor: "#d6d3d1",
-          }}
-        />
-
         <div className="px-6 pb-8 pt-6">
           {/* Header */}
           <div className="mb-4 text-center">
@@ -140,19 +124,6 @@ export default function PaymentReceipt({ trip, payment, onDone }: Props) {
           </p>
         </div>
 
-        {/* Bottom serrated edge */}
-        <div
-          className="h-4 w-full rotate-180"
-          style={{
-            background:
-              "linear-gradient(-45deg, #fffde7 25%, transparent 25%) 0 0," +
-              "linear-gradient(45deg, #fffde7 25%, transparent 25%) 0 0," +
-              "linear-gradient(-45deg, transparent 75%, #fffde7 75%)," +
-              "linear-gradient(45deg, transparent 75%, #fffde7 75%)",
-            backgroundSize: "16px 16px",
-            backgroundColor: "#d6d3d1",
-          }}
-        />
       </div>
 
       <button

@@ -80,8 +80,8 @@ export default function App() {
             stopPolling();
             setIsProcessing(false);
             setPaymentDetail(detail);
+            setScreen("success");
             setToast({ message: "Payment confirmed!", type: "success" });
-            navigate("success");
           } else if (normalizedStatus === "failed") {
             stopPolling();
             setIsProcessing(false);
