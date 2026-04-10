@@ -10,7 +10,7 @@ import { createPayment, getPayment } from "./api/payments";
 import { ApiError } from "./api/client";
 
 const POLL_INTERVAL_MS = 2_000;
-const PAYMENT_TIMEOUT_MS = Number(import.meta.env.VITE_PAYMENT_TIMEOUT_MS ?? 30_000);
+const PAYMENT_TIMEOUT_MS = Number(import.meta.env.VITE_PAYMENT_TIMEOUT_MS || 30_000);
 
 type Screen = "trips" | "registration" | "payment" | "success";
 
@@ -29,6 +29,11 @@ export default function App() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  function navigate(next: Screen) {
+    setToast(null);
+    setScreen(next);
+  }
+
   function stopPolling() {
     if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
     if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
@@ -36,12 +41,12 @@ export default function App() {
 
   function handleBook(trip: TripResponse) {
     setSelectedTrip(trip);
-    setScreen("registration");
+    navigate("registration");
   }
 
   function handleRegistrationContinue(data: RegistrationData) {
     setRegistration(data);
-    setScreen("payment");
+    navigate("payment");
   }
 
   async function handlePaymentConfirm(cardData: CardData) {
@@ -76,7 +81,7 @@ export default function App() {
             setIsProcessing(false);
             setPaymentDetail(detail);
             setToast({ message: "Payment confirmed!", type: "success" });
-            setScreen("success");
+            navigate("success");
           } else if (normalizedStatus === "failed") {
             stopPolling();
             setIsProcessing(false);
@@ -108,7 +113,7 @@ export default function App() {
         <RegistrationForm
           trip={selectedTrip}
           onContinue={handleRegistrationContinue}
-          onCancel={() => setScreen("trips")}
+          onCancel={() => navigate("trips")}
         />
         <Toast message={toast?.message ?? null} type={toast?.type ?? "error"} onDismiss={() => setToast(null)} />
       </>
@@ -122,7 +127,7 @@ export default function App() {
           trip={selectedTrip}
           registration={registration}
           onConfirm={handlePaymentConfirm}
-          onCancel={() => setScreen("registration")}
+          onCancel={() => navigate("registration")}
         />
         <ProcessingModal isOpen={isProcessing} />
         <Toast message={toast?.message ?? null} type={toast?.type ?? "error"} onDismiss={() => setToast(null)} />
@@ -136,7 +141,7 @@ export default function App() {
         <PaymentReceipt
           trip={selectedTrip}
           payment={paymentDetail}
-          onDone={() => { setScreen("trips"); setSelectedTrip(null); setRegistration(null); setPaymentDetail(null); }}
+          onDone={() => { navigate("trips"); setSelectedTrip(null); setRegistration(null); setPaymentDetail(null); }}
         />
         <Toast message={toast?.message ?? null} type={toast?.type ?? "success"} onDismiss={() => setToast(null)} />
       </>
