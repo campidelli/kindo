@@ -62,8 +62,7 @@ Trips  ──book──▶  Registration  ──continue──▶  Payment  ─�
 
 Fetches available trips from `GET /api/v1/trips` and displays them as cards.
 
-_Screenshot placeholder_
-![Trip List](docs/screenshots/01-trip-list.png)
+![Trip List](docs/screen1.png)
 
 ---
 
@@ -72,8 +71,7 @@ _Screenshot placeholder_
 Collects **student name** and **parent/guardian name** before payment.  
 Both fields are required and trimmed on submit.
 
-_Screenshot placeholder_
-![Registration Form](docs/screenshots/02-registration.png)
+![Registration Form](docs/screen2.png)
 
 ---
 
@@ -87,8 +85,7 @@ Collects card details with live formatting and validation:
 
 On submit, calls `POST /api/v1/payments` then polls `GET /api/v1/payments/{id}` every 2 seconds. A full-screen **Processing** modal blocks interaction during polling.
 
-_Screenshot placeholder_
-![Payment Form](docs/screenshots/03-payment.png)
+![Payment Form](docs/screen3.png)
 
 ---
 
@@ -103,8 +100,7 @@ Shown on `status: "success"`. Styled as a thermal EFTPOS receipt (pale yellow, m
 
 A green **"Payment confirmed!"** toast appears in the top-right corner.
 
-_Screenshot placeholder_
-![Payment Receipt](docs/screenshots/04-receipt.png)
+![Payment Receipt](docs/screen4.png)
 
 ---
 
