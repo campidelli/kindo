@@ -11,6 +11,14 @@ A school trip payment platform that lets parents browse available trips and pay 
 | Frontend | https://kindo-8r9m.onrender.com |
 | Backend API docs (Swagger) | https://kindo-api-3y26.onrender.com/docs |
 
+Note: Free tier Render deployments sleep after 15 minutes of inactivity. To wake it up, access the [backend demo](https://kindo-api-3y26.onrender.com/docs), wait for the application to "wake up" and then access the frontend. To seed the database and see the available trips, you must call
+````
+curl -X 'POST' \
+  'https://kindo-api-3y26.onrender.com/api/v1/admin/seed' \
+  -H 'accept: application/json' \
+  -d ''
+````
+
 ---
 
 ## Detailed Documentation
