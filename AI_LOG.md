@@ -614,3 +614,27 @@
 - Replaced boilerplate Vite README with a proper `frontend/README.md` covering: tech stack, getting started, env vars, screen flow diagram, per-screen descriptions with screenshot placeholders, error handling table, assumptions & constraints, deployment URL
 - Updated `AI_LOG.md` with all frontend session entries (Prompts 36–52)
 
+---
+
+### Prompt 53
+> "for the backend, add a new endpoint to list all payments. Keep the docs up to date"
+
+**AI actions:**
+- Added `list_all()` to `PaymentRepository` using `select(Payment).order_by(created_at.desc())`
+- Added `list_payments()` to `PaymentService` delegating to the repository
+- Added `PaymentListResponse` schema with `payments: list[PaymentDetailResponse]` and `total: int`
+- Exported `PaymentListResponse` from `app/schemas/__init__.py`
+- Added `GET /api/v1/payments` endpoint to `app/routers/payments.py` returning `PaymentListResponse`
+- Updated `backend/README.md` payments table with the new endpoint
+
+---
+
+### Prompt 54
+> "update the unit and integration tests, as well as the readme file and the ai log"
+
+**AI actions:**
+- Added `TestListPayments` class to `tests/test_payment_service.py` with 2 unit tests: returns all payments, returns empty list
+- Added 2 integration tests to `tests/test_integration.py`: `GET /api/v1/payments` returns empty list with correct shape; returns all payments with correct total
+- Updated test count in `backend/README.md` from 25 to 28 (15 unit, 13 integration)
+- Updated `AI_LOG.md` (this entry)
+

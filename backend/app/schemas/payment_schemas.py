@@ -55,3 +55,8 @@ class PaymentDetailResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class PaymentListResponse(BaseModel):
+    payments: list[PaymentDetailResponse]
+    total: int

@@ -57,6 +57,9 @@ class PaymentService:
     def get_payment_by_id(self, payment_id: uuid.UUID) -> Payment | None:
         return self.payment_repository.get_by_id(payment_id)
 
+    def list_payments(self) -> list[Payment]:
+        return self.payment_repository.list_all()
+
     async def process_pending_payment(self, data: PaymentData) -> Payment:
         payment = self.payment_repository.get_by_id(data.payment_id)
         if payment is None:

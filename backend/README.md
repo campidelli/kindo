@@ -70,6 +70,7 @@ backend/
 
 | Method | Path | Description |
 |---|---|---|
+| `GET` | `/api/v1/payments` | List all payments (most recent first) |
 | `POST` | `/api/v1/payments` | Create a payment (returns `201 PENDING`) |
 | `GET` | `/api/v1/payments/{payment_id}` | Get current payment status |
 
@@ -135,7 +136,7 @@ pytest tests/test_trip_service.py tests/test_payment_service.py -v
 pytest tests/test_trips_integration.py tests/test_payments_integration.py -v
 ```
 
-**25 tests — 13 unit, 12 integration — all passing in ~0.3s.**
+**28 tests — 15 unit, 13 integration — all passing in ~0.3s.**
 
 Unit tests mock all repositories and the legacy processor. Integration tests use an in-memory SQLite database and FastAPI's `TestClient`. No network or file I/O required.
 

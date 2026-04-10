@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlmodel import Session
 
 from app.core.database import get_session
-from app.schemas import PaymentCreatedResponse, PaymentDetailResponse, PaymentRequest
+from app.schemas import PaymentCreatedResponse, PaymentDetailResponse, PaymentListResponse, PaymentRequest
 from app.services.payment_service import PaymentData, PaymentService, TripNotFoundError
 
 router = APIRouter(prefix="/api/v1/payments", tags=["payments"])
@@ -18,6 +18,29 @@ def get_payment_service(db: DbDep) -> PaymentService:
 
 
 PaymentServiceDep = Annotated[PaymentService, Depends(get_payment_service)]
+
+
+@router.get("", response_model=PaymentListResponse, status_code=status.HTTP_200_OK)
+def list_payments(service: PaymentServiceDep):
+    """List all payments ordered by most recent first."""
+    payments = service.list_payments()
+    return PaymentListResponse(
+        payments=[
+            PaymentDetailResponse(
+                id=p.id,
+                trip_id=p.trip_id,
+                student_name=p.student_name,
+                parent_name=p.parent_name,
+                card_last_four=p.card_last_four,
+                status=p.status.value,
+                transaction_id=p.transaction_id,
+                error_message=p.error_message,
+                created_at=p.created_at,
+            )
+            for p in payments
+        ],
+        total=len(payments),
+    )
 
 
 @router.post("", response_model=PaymentCreatedResponse, status_code=status.HTTP_201_CREATED)

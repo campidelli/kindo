@@ -180,6 +180,42 @@ class TestPaymentEndpoints:
         response = client.get(f"/api/v1/payments/{fake_id}")
         assert response.status_code == 404
 
+    def test_list_payments_empty(self, client: TestClient):
+        """GET /api/v1/payments with no payments returns empty list."""
+        response = client.get("/api/v1/payments")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["payments"] == []
+        assert data["total"] == 0
+
+    def test_list_payments_returns_all(self, trip: Trip, session: Session, client: TestClient):
+        """GET /api/v1/payments returns all payments ordered by most recent first."""
+        p1 = Payment(
+            trip_id=trip.id,
+            student_name="Alice Smith",
+            parent_name="Bob Smith",
+            card_last_four="1111",
+            status=PaymentStatus.SUCCESS,
+        )
+        p2 = Payment(
+            trip_id=trip.id,
+            student_name="Charlie Brown",
+            parent_name="Diana Brown",
+            card_last_four="4242",
+            status=PaymentStatus.FAILED,
+        )
+        session.add(p1)
+        session.add(p2)
+        session.commit()
+
+        response = client.get("/api/v1/payments")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        names = [p["student_name"] for p in data["payments"]]
+        assert "Alice Smith" in names
+        assert "Charlie Brown" in names
+
     def test_create_payment_fails_when_trip_not_found(self, client: TestClient):
         """POST /api/v1/payments with non-existent trip returns 404."""
         with patch("app.services.payment_service._processor.process_payment"):

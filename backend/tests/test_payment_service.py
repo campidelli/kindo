@@ -105,6 +105,36 @@ class TestGetPaymentById:
 
 
 # ---------------------------------------------------------------------------
+# list_payments
+# ---------------------------------------------------------------------------
+
+class TestListPayments:
+    def test_returns_all_payments(self):
+        trip = make_trip()
+        payments = [
+            make_payment(trip_id=trip.id, status=PaymentStatus.SUCCESS),
+            make_payment(trip_id=trip.id, status=PaymentStatus.FAILED),
+        ]
+        trip_repo = MagicMock()
+        payment_repo = MagicMock()
+        payment_repo.list_all.return_value = payments
+
+        result = make_service(trip_repo, payment_repo).list_payments()
+
+        assert result == payments
+        payment_repo.list_all.assert_called_once()
+
+    def test_returns_empty_list_when_no_payments(self):
+        trip_repo = MagicMock()
+        payment_repo = MagicMock()
+        payment_repo.list_all.return_value = []
+
+        result = make_service(trip_repo, payment_repo).list_payments()
+
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
 # process_pending_payment
 # ---------------------------------------------------------------------------
 

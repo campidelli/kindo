@@ -1,6 +1,6 @@
 import uuid
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.models import Payment, PaymentStatus
 
@@ -17,6 +17,9 @@ class PaymentRepository:
 
     def get_by_id(self, payment_id: uuid.UUID) -> Payment | None:
         return self.session.get(Payment, payment_id)
+
+    def list_all(self) -> list[Payment]:
+        return list(self.session.exec(select(Payment).order_by(Payment.created_at.desc())).all())
 
     def update_result(
         self,
