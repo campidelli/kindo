@@ -35,6 +35,10 @@ class SafeInMemoryCardStore:
         """Check if card data exists for a payment"""
         return payment_id in self._store
 
+    def reset(self) -> None:
+        """Clear all stored card data."""
+        self._store.clear()
+
 
 @lru_cache
 def get_card_store() -> SafeInMemoryCardStore:

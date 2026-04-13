@@ -17,6 +17,8 @@ class ReceiptTrip(BaseModel):
 	school_id: str
 	activity_id: str
 
+	model_config = {"from_attributes": True}
+
 
 class ReceiptBooking(BaseModel):
 	id: uuid.UUID
@@ -25,6 +27,8 @@ class ReceiptBooking(BaseModel):
 	parent_name: str
 	child_name: str
 	created_at: datetime
+
+	model_config = {"from_attributes": True}
 
 
 class ReceiptPayment(BaseModel):
@@ -35,6 +39,8 @@ class ReceiptPayment(BaseModel):
 	transaction_id: str | None
 	error_message: str | None
 	created_at: datetime
+
+	model_config = {"from_attributes": True}
 
 
 class BookingReceiptResponse(BaseModel):

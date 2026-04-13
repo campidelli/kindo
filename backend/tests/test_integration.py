@@ -1,79 +1,24 @@
-"""Integration tests for the full API flow."""
 import uuid
 from datetime import datetime
 from unittest.mock import patch
 
-import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
-from sqlmodel.pool import StaticPool
+from sqlmodel import Session
 
-from app.core.database import get_session
-from app.core.logging import configure_logging
-from app.enums.payment_status import PaymentStatus
-from app.integrations.legacy_payment_processor import PaymentResponse
-from app.models import Payment, Trip
-
-
-@pytest.fixture(name="session")
-def session_fixture():
-    """Create an in-memory SQLite database for testing."""
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-
-
-@pytest.fixture(name="client")
-def client_fixture(session: Session):
-    """Create a TestClient with the test database."""
-    configure_logging()
-    
-    def get_session_override():
-        return session
-
-    test_app = FastAPI(title="Test App", version="1.0.0")
-    test_app.dependency_overrides[get_session] = get_session_override
-    
-    from app.routers import trips, payments
-    test_app.include_router(trips.router)
-    test_app.include_router(payments.router)
-    
-    return TestClient(test_app)
+from app.modules.payments.legacy_payment_processor import PaymentResponse
+from app.modules.payments.models import PaymentStatus
+from tests.conftest import make_trip
 
 
 class TestTripEndpoints:
     def test_list_trips_empty(self, client: TestClient):
-        """GET /api/v1/trips with no trips."""
         response = client.get("/api/v1/trips")
         assert response.status_code == 200
         assert response.json() == []
 
     def test_list_trips_with_data(self, session: Session, client: TestClient):
-        """GET /api/v1/trips with trips in the database."""
-        trip1 = Trip(
-            title="Zoo Trip",
-            description="Learn about animals",
-            date=datetime(2026, 6, 15),
-            location="Wellington Zoo",
-            cost=35.00,
-            school_id="SCH-001",
-            activity_id="ACT-ZOO",
-        )
-        trip2 = Trip(
-            title="Museum Trip",
-            description="Learn about history",
-            date=datetime(2026, 7, 20),
-            location="Te Papa Museum",
-            cost=25.00,
-            school_id="SCH-001",
-            activity_id="ACT-MUS",
-        )
+        trip1 = make_trip(title="Zoo Trip", activity_id="ACT-ZOO")
+        trip2 = make_trip(title="Museum Trip", activity_id="ACT-MUS", date=datetime(2026, 7, 20))
         session.add(trip1)
         session.add(trip2)
         session.commit()
@@ -86,16 +31,7 @@ class TestTripEndpoints:
         assert trips[1]["title"] == "Museum Trip"
 
     def test_get_trip_by_id(self, session: Session, client: TestClient):
-        """GET /api/v1/trips/{trip_id}."""
-        trip = Trip(
-            title="Zoo Trip",
-            description="Learn about animals",
-            date=datetime(2026, 6, 15),
-            location="Wellington Zoo",
-            cost=35.00,
-            school_id="SCH-001",
-            activity_id="ACT-ZOO",
-        )
+        trip = make_trip(title="Zoo Trip", activity_id="ACT-ZOO")
         session.add(trip)
         session.commit()
 
@@ -107,227 +43,124 @@ class TestTripEndpoints:
         assert data["cost"] == 35.00
 
     def test_get_trip_not_found(self, client: TestClient):
-        """GET /api/v1/trips/{trip_id} with non-existent trip."""
         fake_id = uuid.uuid4()
         response = client.get(f"/api/v1/trips/{fake_id}")
         assert response.status_code == 404
         assert response.json()["detail"] == "Trip not found."
 
 
-class TestPaymentEndpoints:
-    @pytest.fixture
-    def trip(self, session: Session):
-        """Create a sample trip for payment tests."""
-        trip = Trip(
-            title="Zoo Trip",
-            description="Learn about animals",
-            date=datetime(2026, 6, 15),
-            location="Wellington Zoo",
-            cost=35.00,
-            school_id="SCH-001",
-            activity_id="ACT-ZOO",
-        )
+class TestBookingAndPaymentFlow:
+    def test_create_and_cancel_booking(self, session: Session, client: TestClient):
+        trip = make_trip()
         session.add(trip)
         session.commit()
-        return trip
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "trip_id": str(trip.id),
+                "parent_name": "Bob Smith",
+                "child_name": "Alice Smith",
+            },
+        )
 
-    def test_create_payment_returns_201_with_pending(self, trip: Trip, client: TestClient):
-        """POST /api/v1/payments returns 201 with PENDING status."""
-        with patch("app.services.payment_service._processor.process_payment") as mock_processor:
-            mock_processor.return_value = PaymentResponse(success=True, transaction_id="TXN-123")
-            
-            response = client.post(
+        assert create_response.status_code == 201
+        booking = create_response.json()
+        assert booking["status"] == "PENDING_PAYMENT"
+
+        cancel_response = client.delete(f"/api/v1/bookings/{booking['id']}")
+        assert cancel_response.status_code == 200
+        assert cancel_response.json()["status"] == "CANCELLED"
+
+    def test_create_payment_confirms_booking_and_generates_receipt(self, session: Session, client: TestClient):
+        trip = make_trip(cost=52.50, activity_id="ACT-REC")
+        session.add(trip)
+        session.commit()
+
+        booking_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "trip_id": str(trip.id),
+                "parent_name": "Bob Smith",
+                "child_name": "Alice Smith",
+            },
+        )
+        booking_id = booking_response.json()["id"]
+
+        with patch(
+            "app.modules.payments.service.payment_processor.process_payment",
+            return_value=PaymentResponse(success=True, transaction_id="TXN-123"),
+        ):
+            payment_response = client.post(
                 "/api/v1/payments",
                 json={
-                    "trip_id": str(trip.id),
-                    "student_name": "Alice Smith",
-                    "parent_name": "Bob Smith",
-                    "card_number": "4111 1111 1111 1111",
-                    "expiry_date": "12/30",
+                    "booking_id": booking_id,
+                    "card_number": "4111111111111111",
                     "cvv": "123",
+                    "expiry_month": 12,
+                    "expiry_year": 2030,
                 },
             )
 
-        assert response.status_code == 201
-        data = response.json()
-        assert data["status"] == PaymentStatus.PENDING.value
-        assert data["trip_id"] == str(trip.id)
-        assert "payment_id" in data
-        assert "created_at" in data
+        assert payment_response.status_code == 201
+        payment_id = payment_response.json()["id"]
 
-    def test_get_payment_by_id(self, trip: Trip, session: Session, client: TestClient):
-        """GET /api/v1/payments/{payment_id}."""
-        payment = Payment(
-            trip_id=trip.id,
-            student_name="Alice Smith",
-            parent_name="Bob Smith",
-            card_last_four="1111",
-            status=PaymentStatus.PENDING,
-        )
-        session.add(payment)
-        session.commit()
+        payment_lookup = client.get(f"/api/v1/payments/{payment_id}")
+        assert payment_lookup.status_code == 200
+        payment_data = payment_lookup.json()
+        assert payment_data["status"] == PaymentStatus.SUCCESS.value
+        assert payment_data["transaction_id"] == "TXN-123"
+        assert payment_data["card_last_four"] == "1111"
 
-        response = client.get(f"/api/v1/payments/{payment.id}")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["id"] == str(payment.id)
-        assert data["student_name"] == "Alice Smith"
-        assert data["status"] == PaymentStatus.PENDING.value
+        booking_lookup = client.get(f"/api/v1/bookings/{booking_id}")
+        assert booking_lookup.status_code == 200
+        assert booking_lookup.json()["status"] == "CONFIRMED"
 
-    def test_get_payment_not_found(self, client: TestClient):
-        """GET /api/v1/payments/{payment_id} with non-existent payment."""
-        fake_id = uuid.uuid4()
-        response = client.get(f"/api/v1/payments/{fake_id}")
-        assert response.status_code == 404
+        receipt_response = client.get(f"/api/v1/receipts/bookings/{booking_id}")
+        assert receipt_response.status_code == 200
+        receipt = receipt_response.json()
+        assert receipt["booking"]["id"] == booking_id
+        assert receipt["trip"]["id"] == str(trip.id)
+        assert receipt["payment"]["id"] == payment_id
+        assert receipt["payment"]["status"] == PaymentStatus.SUCCESS.value
 
-    def test_list_payments_empty(self, client: TestClient):
-        """GET /api/v1/payments with no payments returns empty list."""
-        response = client.get("/api/v1/payments")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["payments"] == []
-        assert data["total"] == 0
-
-    def test_list_payments_returns_all(self, trip: Trip, session: Session, client: TestClient):
-        """GET /api/v1/payments returns all payments ordered by most recent first."""
-        p1 = Payment(
-            trip_id=trip.id,
-            student_name="Alice Smith",
-            parent_name="Bob Smith",
-            card_last_four="1111",
-            status=PaymentStatus.SUCCESS,
-        )
-        p2 = Payment(
-            trip_id=trip.id,
-            student_name="Charlie Brown",
-            parent_name="Diana Brown",
-            card_last_four="4242",
-            status=PaymentStatus.FAILED,
-        )
-        session.add(p1)
-        session.add(p2)
-        session.commit()
-
-        response = client.get("/api/v1/payments")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["total"] == 2
-        names = [p["student_name"] for p in data["payments"]]
-        assert "Alice Smith" in names
-        assert "Charlie Brown" in names
-
-    def test_create_payment_fails_when_trip_not_found(self, client: TestClient):
-        """POST /api/v1/payments with non-existent trip returns 404."""
-        with patch("app.services.payment_service._processor.process_payment"):
-            fake_trip_id = uuid.uuid4()
-            response = client.post(
-                "/api/v1/payments",
-                json={
-                    "trip_id": str(fake_trip_id),
-                    "student_name": "Alice Smith",
-                    "parent_name": "Bob Smith",
-                    "card_number": "4111 1111 1111 1111",
-                    "expiry_date": "12/30",
-                    "cvv": "123",
-                },
-            )
-
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Trip not found."
-
-    def test_payment_validation_card_number(self, trip: Trip, client: TestClient):
-        """POST /api/v1/payments validates card number format."""
+    def test_create_payment_returns_404_when_booking_missing(self, client: TestClient):
         response = client.post(
             "/api/v1/payments",
             json={
+                "booking_id": str(uuid.uuid4()),
+                "card_number": "4111111111111111",
+                "cvv": "123",
+                "expiry_month": 12,
+                "expiry_year": 2030,
+            },
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Booking not found."
+
+    def test_create_payment_validates_card_fields(self, session: Session, client: TestClient):
+        trip = make_trip()
+        session.add(trip)
+        session.commit()
+
+        booking_response = client.post(
+            "/api/v1/bookings",
+            json={
                 "trip_id": str(trip.id),
-                "student_name": "Alice Smith",
                 "parent_name": "Bob Smith",
+                "child_name": "Alice Smith",
+            },
+        )
+
+        response = client.post(
+            "/api/v1/payments",
+            json={
+                "booking_id": booking_response.json()["id"],
                 "card_number": "123",
-                "expiry_date": "12/30",
-                "cvv": "123",
-            },
-        )
-        assert response.status_code == 422
-
-    def test_payment_validation_expiry_date(self, trip: Trip, client: TestClient):
-        """POST /api/v1/payments validates expiry date format."""
-        response = client.post(
-            "/api/v1/payments",
-            json={
-                "trip_id": str(trip.id),
-                "student_name": "Alice Smith",
-                "parent_name": "Bob Smith",
-                "card_number": "4111111111111111",
-                "expiry_date": "2030",
-                "cvv": "123",
-            },
-        )
-        assert response.status_code == 422
-
-    def test_payment_validation_cvv(self, trip: Trip, client: TestClient):
-        """POST /api/v1/payments validates CVV format."""
-        response = client.post(
-            "/api/v1/payments",
-            json={
-                "trip_id": str(trip.id),
-                "student_name": "Alice Smith",
-                "parent_name": "Bob Smith",
-                "card_number": "4111111111111111",
-                "expiry_date": "12/30",
                 "cvv": "12",
+                "expiry_month": 12,
+                "expiry_year": 2,
             },
         )
+
         assert response.status_code == 422
-
-
-class TestFullWorkflow:
-    def test_end_to_end_trip_and_payment_flow(self, session: Session, client: TestClient):
-        """Full workflow: create trip, list, get, create payment, get payment."""
-        with patch("app.services.payment_service._processor.process_payment") as mock_processor:
-            mock_processor.return_value = PaymentResponse(success=True, transaction_id="TXN-123")
-            
-            # 1. Create a trip
-            trip = Trip(
-                title="Zoo Trip",
-                description="Learn about animals",
-                date=datetime(2026, 6, 15),
-                location="Wellington Zoo",
-                cost=35.00,
-                school_id="SCH-001",
-                activity_id="ACT-ZOO",
-            )
-            session.add(trip)
-            session.commit()
-
-            # 2. List trips
-            response = client.get("/api/v1/trips")
-            assert response.status_code == 200
-            assert len(response.json()) == 1
-
-            # 3. Get the specific trip
-            response = client.get(f"/api/v1/trips/{trip.id}")
-            assert response.status_code == 200
-            assert response.json()["title"] == "Zoo Trip"
-
-            # 4. Create a payment
-            response = client.post(
-                "/api/v1/payments",
-                json={
-                    "trip_id": str(trip.id),
-                    "student_name": "Alice Smith",
-                    "parent_name": "Bob Smith",
-                    "card_number": "4111 1111 1111 1111",
-                    "expiry_date": "12/30",
-                    "cvv": "123",
-                },
-            )
-            assert response.status_code == 201
-            payment_id = response.json()["payment_id"]
-            assert response.json()["status"] == PaymentStatus.PENDING.value
-
-            # 5. Get the payment
-            response = client.get(f"/api/v1/payments/{payment_id}")
-            assert response.status_code == 200
-            assert response.json()["status"] == PaymentStatus.PENDING.value
-            assert response.json()["student_name"] == "Alice Smith"

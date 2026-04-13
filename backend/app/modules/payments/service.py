@@ -5,7 +5,7 @@ from app.modules.payments.events import PaymentSucceededEvent, PaymentCreatedEve
 from app.modules.payments.legacy_payment_processor import LegacyPaymentProcessor
 from app.modules.payments.models import Payment, PaymentStatus
 from app.modules.payments.repository import PaymentRepository
-from app.modules.payments.safe_in_memory_card_store import CardData, get_card_store
+from app.modules.payments.safe_in_memory_card_store import CardData, SafeInMemoryCardStore
 from app.modules.bookings.repository import BookingRepository
 from app.shared.event_bus import EventBus
 
@@ -16,7 +16,7 @@ payment_processor = LegacyPaymentProcessor()
 class PaymentService:
     def __init__(
         self,
-        card_store: get_card_store,
+        card_store: SafeInMemoryCardStore,
         repository: PaymentRepository,
         booking_repository: BookingRepository,
         event_bus: EventBus,
@@ -55,13 +55,12 @@ class PaymentService:
         # NOTE: In a real application, the payment provider is called by the frontend and a token is sent to the backend,
         # so we don't handle raw card data in the backend at all.
         logger.debug(f"Storing card data in memory for payment_id={created_payment.id}")
-        card_store = get_card_store()
         card_data = CardData(
             card_number=card_number,
             cvv=cvv,
             expiry_date=expiry_date,
         )
-        card_store.store(created_payment.id, card_data)
+        self.card_store.store(created_payment.id, card_data)
 
         self.event_bus.publish(PaymentCreatedEvent(payment_id=created_payment.id, booking_id=created_payment.booking_id))
 

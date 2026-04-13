@@ -1,10 +1,13 @@
 import uuid
 from enum import Enum
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from sqlmodel import Field
+from sqlmodel import Field, Relationship
 
 from app.shared.base import BaseModel
+
+if TYPE_CHECKING:
+    from app.modules.bookings.models import Booking
 
 
 class PaymentStatus(str, Enum):
@@ -21,4 +24,6 @@ class Payment(BaseModel, table=True):
     status: PaymentStatus = Field(default=PaymentStatus.PENDING)
     transaction_id: Optional[str] = None
     error_message: Optional[str] = None
+
+    booking: "Booking" = Relationship()
 

@@ -1,9 +1,13 @@
 import uuid
 from enum import Enum
+from typing import TYPE_CHECKING
 
-from sqlmodel import Field
+from sqlmodel import Field, Relationship
 
 from app.shared.base import BaseModel
+
+if TYPE_CHECKING:
+    from app.modules.trips.models import Trip
 
 
 class BookingStatus(str, Enum):
@@ -20,4 +24,6 @@ class Booking(BaseModel, table=True):
     status: BookingStatus = Field(default=BookingStatus.PENDING_PAYMENT)
     parent_name: str
     child_name: str
+
+    trip: "Trip" = Relationship()
 

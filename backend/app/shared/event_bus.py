@@ -17,6 +17,9 @@ class EventBus:
     def __init__(self):
         self._subscribers: dict[type[Event], list[Callable[[Event], None]]] = {}
 
+    def reset(self) -> None:
+        self._subscribers.clear()
+
     def subscribe(self, event_type: type[Event], handler: Callable[[Event], None]) -> None:
         """Subscribe a handler to an event type"""
         if event_type not in self._subscribers:
