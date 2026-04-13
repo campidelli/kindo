@@ -1,6 +1,9 @@
-from typing import Any, Callable
+import logging
+from typing import Callable
 
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class Event(BaseModel):
@@ -24,6 +27,7 @@ class EventBus:
     def publish(self, event: Event) -> None:
         """Publish an event to all subscribed handlers"""
         event_type = type(event)
+        logger.debug(f"Publishing {event_type.__name__}: {event}")
         if event_type in self._subscribers:
             for handler in self._subscribers[event_type]:
                 handler(event)
