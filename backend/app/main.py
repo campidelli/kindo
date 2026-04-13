@@ -7,6 +7,7 @@ from sqlmodel import SQLModel
 from app.core.config import settings
 from app.core.database import engine
 from app.core.logging import configure_logging, get_logger
+from app.modules.receipts import router as receipts_router
 from app.routers import admin, payments, trips
 
 logger = get_logger(__name__)
@@ -37,4 +38,5 @@ app.add_middleware(
 
 app.include_router(trips.router)
 app.include_router(payments.router)
+app.include_router(receipts_router)
 app.include_router(admin.router)

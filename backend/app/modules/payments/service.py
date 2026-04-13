@@ -7,7 +7,7 @@ from app.modules.payments.models import Payment, PaymentStatus
 from app.modules.payments.repository import PaymentRepository
 from app.modules.payments.safe_in_memory_card_store import CardData, get_card_store
 from app.modules.bookings.repository import BookingRepository
-from app.shared.event_bus import event_bus
+from app.shared.event_bus import EventBus
 from backend.app.models import payment
 
 logger = logging.getLogger(__name__)
@@ -15,10 +15,17 @@ payment_processor = LegacyPaymentProcessor()
 
 
 class PaymentService:
-    def __init__(self, card_store: get_card_store, repository: PaymentRepository, booking_repository: BookingRepository):
+    def __init__(
+        self,
+        card_store: get_card_store,
+        repository: PaymentRepository,
+        booking_repository: BookingRepository,
+        event_bus: EventBus,
+    ):
         self.repository = repository
         self.booking_repository = booking_repository
         self.card_store = card_store
+        self.event_bus = event_bus
 
     def get_all(self) -> list[Payment]:
         return self.repository.get_all()
@@ -57,7 +64,7 @@ class PaymentService:
         )
         card_store.store(created_payment.id, card_data)
 
-        event_bus.publish(PaymentCreatedEvent(payment_id=created_payment.id, booking_id=created_payment.booking_id))
+        self.event_bus.publish(PaymentCreatedEvent(payment_id=created_payment.id, booking_id=created_payment.booking_id))
 
         return created_payment
 
@@ -116,7 +123,7 @@ class PaymentService:
         updated_payment = self.repository.update(payment)
 
         logger.info(f"Payment succeeded: payment_id={payment_id}, transaction_id={payment.transaction_id}")
-        event_bus.publish(PaymentSucceededEvent(payment_id=payment.id, booking_id=payment.booking_id, transaction_id=payment.transaction_id))
+        self.event_bus.publish(PaymentSucceededEvent(payment_id=payment.id, booking_id=payment.booking_id, transaction_id=payment.transaction_id))
 
         return updated_payment
 
@@ -124,5 +131,5 @@ class PaymentService:
         payment.status = PaymentStatus.FAILED
         payment.error_message = error_message
         self.repository.update(payment)
-        event_bus.publish(PaymentFailedEvent(payment_id=payment.id, booking_id=payment.booking_id, error_message=error_message))
+        self.event_bus.publish(PaymentFailedEvent(payment_id=payment.id, booking_id=payment.booking_id, error_message=error_message))
         return payment

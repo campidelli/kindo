@@ -9,14 +9,16 @@ from app.modules.bookings.models import Booking
 from app.modules.bookings.repository import BookingRepository
 from app.modules.bookings.schemas import BookingCreateRequest, BookingResponse
 from app.modules.bookings.service import BookingService
+from app.shared.event_bus import EventBus, get_event_bus
 
 router = APIRouter(prefix="/api/v1/bookings", tags=["bookings"])
 
 DbDep = Annotated[Session, Depends(get_session)]
+EventBusDep = Annotated[EventBus, Depends(get_event_bus)]
 
 
-def get_booking_service(db: DbDep) -> BookingService:
-    return BookingService(BookingRepository(db))
+def get_booking_service(db: DbDep, event_bus: EventBusDep) -> BookingService:
+    return BookingService(BookingRepository(db), event_bus)
 
 
 BookingServiceDep = Annotated[BookingService, Depends(get_booking_service)]

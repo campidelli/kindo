@@ -9,15 +9,18 @@ from app.modules.payments.repository import PaymentRepository
 from app.modules.payments.schemas import PaymentCreate, PaymentCreateRequest, PaymentResponse
 from app.modules.payments.service import PaymentService
 from app.modules.bookings.repository import BookingRepository
+from app.modules.payments.safe_in_memory_card_store import get_card_store
+from app.shared.event_bus import EventBus, get_event_bus
 from backend.tests.test_payment_service import payment_data
 
 router = APIRouter(prefix="/api/v1/payments", tags=["payments"])
 
 DbDep = Annotated[Session, Depends(get_session)]
+EventBusDep = Annotated[EventBus, Depends(get_event_bus)]
 
 
-def get_payment_service(db: DbDep) -> PaymentService:
-    return PaymentService(PaymentRepository(db), BookingRepository(db))
+def get_payment_service(db: DbDep, event_bus: EventBusDep) -> PaymentService:
+    return PaymentService(get_card_store(), PaymentRepository(db), BookingRepository(db), event_bus)
 
 
 PaymentServiceDep = Annotated[PaymentService, Depends(get_payment_service)]

@@ -1,4 +1,5 @@
 import logging
+from functools import lru_cache
 from typing import Callable
 
 from pydantic import BaseModel
@@ -8,13 +9,11 @@ logger = logging.getLogger(__name__)
 
 class Event(BaseModel):
     """Base class for all domain events"""
-
     pass
 
 
 class EventBus:
     """Simple in-memory event bus for publishing and subscribing to events"""
-
     def __init__(self):
         self._subscribers: dict[type[Event], list[Callable[[Event], None]]] = {}
 
@@ -33,5 +32,6 @@ class EventBus:
                 handler(event)
 
 
-# Global event bus instance
-event_bus = EventBus()
+@lru_cache
+def get_event_bus() -> EventBus:
+    return EventBus()

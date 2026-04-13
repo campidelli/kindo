@@ -8,12 +8,13 @@ from app.modules.bookings.events import (
 )
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.bookings.repository import BookingRepository
-from app.shared.event_bus import event_bus
+from app.shared.event_bus import EventBus
 
 
 class BookingService:
-    def __init__(self, repository: BookingRepository):
+    def __init__(self, repository: BookingRepository, event_bus: EventBus):
         self.repository = repository
+        self.event_bus = event_bus
 
     def get_all(self) -> list[Booking]:
         return self.repository.get_all()
@@ -35,7 +36,7 @@ class BookingService:
             parent_name=created_booking.parent_name,
             child_name=created_booking.child_name,
         )
-        event_bus.publish(event)
+        self.event_bus.publish(event)
 
         return created_booking
 
@@ -50,14 +51,14 @@ class BookingService:
                 parent_name=cancelled_booking.parent_name,
                 child_name=cancelled_booking.child_name,
             )
-            event_bus.publish(event)
+            self.event_bus.publish(event)
         
         return cancelled_booking
 
     def confirm(self, booking_id: uuid.UUID) -> Booking | None:
         confirmed_booking = self.repository.update_status(booking_id, BookingStatus.CONFIRMED)
         if confirmed_booking:
-            event_bus.publish(
+            self.event_bus.publish(
                 BookingConfirmedEvent(
                     booking_id=confirmed_booking.id,
                     trip_id=confirmed_booking.trip_id,
@@ -70,7 +71,7 @@ class BookingService:
     def fail(self, booking_id: uuid.UUID) -> Booking | None:
         failed_booking = self.repository.update_status(booking_id, BookingStatus.FAILED)
         if failed_booking:
-            event_bus.publish(
+            self.event_bus.publish(
                 BookingFailedEvent(
                     booking_id=failed_booking.id,
                     trip_id=failed_booking.trip_id,
