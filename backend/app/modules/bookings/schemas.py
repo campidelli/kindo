@@ -1,15 +1,15 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.modules.bookings.models import BookingStatus
 
 
-class BookingCreate(BaseModel):
+class BookingCreateRequest(BaseModel):
     trip_id: uuid.UUID
-    parent_name: str
-    child_name: str
+    parent_name: str = Field(..., min_length=1)
+    child_name: str = Field(..., min_length=1)
 
 
 class BookingResponse(BaseModel):

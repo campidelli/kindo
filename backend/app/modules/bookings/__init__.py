@@ -1,8 +1,13 @@
-from app.modules.bookings.events import BookingCancelledEvent, BookingCreatedEvent
-from app.modules.bookings.handlers import register_handlers
+from app.modules.bookings.events import (
+    BookingCancelledEvent,
+    BookingConfirmedEvent,
+    BookingCreatedEvent,
+    BookingFailedEvent,
+)
+from app.modules.bookings.handlers import BookingEventHandlers
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.bookings.router import router
-from app.modules.bookings.schemas import BookingCreate, BookingResponse
+from app.modules.bookings.schemas import BookingCreateRequest, BookingResponse
 from app.modules.bookings.service import BookingService
 
 __all__ = [
@@ -10,9 +15,11 @@ __all__ = [
     "BookingStatus",
     "BookingService",
     "BookingResponse",
-    "BookingCreate",
+    "BookingCreateRequest",
     "BookingCreatedEvent",
     "BookingCancelledEvent",
-    "register_handlers",
+    "BookingConfirmedEvent",
+    "BookingFailedEvent",
+    "BookingEventHandlers",
     "router",
 ]

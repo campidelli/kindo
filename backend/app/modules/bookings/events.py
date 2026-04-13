@@ -19,3 +19,21 @@ class BookingCancelledEvent(Event):
     trip_id: uuid.UUID
     parent_name: str
     child_name: str
+
+
+class BookingConfirmedEvent(Event):
+    """Event published when a booking is confirmed"""
+
+    booking_id: uuid.UUID
+    trip_id: uuid.UUID
+    parent_name: str
+    child_name: str
+
+
+class BookingFailedEvent(Event):
+    """Event published when a booking payment fails"""
+
+    booking_id: uuid.UUID
+    trip_id: uuid.UUID
+    parent_name: str
+    child_name: str

@@ -32,3 +32,12 @@ class BookingRepository:
             self.session.commit()
             self.session.refresh(booking)
         return booking
+
+    def update_status(self, booking_id: uuid.UUID, status: BookingStatus) -> Booking | None:
+        booking = self.session.get(Booking, booking_id)
+        if booking:
+            booking.status = status
+            self.session.add(booking)
+            self.session.commit()
+            self.session.refresh(booking)
+        return booking

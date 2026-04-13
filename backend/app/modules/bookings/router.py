@@ -7,7 +7,7 @@ from sqlmodel import Session
 from app.infrastructure.database import get_session
 from app.modules.bookings.models import Booking
 from app.modules.bookings.repository import BookingRepository
-from app.modules.bookings.schemas import BookingCreate, BookingResponse
+from app.modules.bookings.schemas import BookingCreateRequest, BookingResponse
 from app.modules.bookings.service import BookingService
 
 router = APIRouter(prefix="/api/v1/bookings", tags=["bookings"])
@@ -36,8 +36,8 @@ def get_booking(booking_id: uuid.UUID, service: BookingServiceDep):
 
 
 @router.post("", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
-def create_booking(booking_data: BookingCreate, service: BookingServiceDep):
-    booking = Booking(**booking_data.model_dump())
+def create_booking(request: BookingCreateRequest, service: BookingServiceDep):
+    booking = Booking(**request.model_dump())
     return service.create(booking)
 
 
