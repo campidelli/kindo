@@ -1,4 +1,5 @@
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 import pytest
@@ -8,17 +9,17 @@ from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
 from app.infrastructure.database import get_session
+from app.infrastructure.service_factories import (
+    build_booking_service_factory,
+    build_payment_service_factory,
+)
 from app.modules.bookings.handlers import BookingEventHandlers
 from app.modules.bookings.models import Booking, BookingStatus
-from app.modules.bookings.repository import BookingRepository
 from app.modules.bookings.router import router as bookings_router
-from app.modules.bookings.service import BookingService
 from app.modules.payments.handlers import PaymentEventHandlers
 from app.modules.payments.models import Payment, PaymentStatus
-from app.modules.payments.repository import PaymentRepository
 from app.modules.payments.router import router as payments_router
 from app.modules.payments.safe_in_memory_card_store import get_card_store
-from app.modules.payments.service import PaymentService
 from app.modules.receipts.router import router as receipts_router
 from app.modules.trips.models import Trip
 from app.modules.trips.router import router as trips_router
@@ -110,15 +111,15 @@ def client(session: Session, event_bus: EventBus, card_store) -> TestClient:
     def override_get_event_bus() -> EventBus:
         return event_bus
 
+    @contextmanager
+    def test_session_scope():
+        yield session
+
     event_bus.reset()
-    BookingEventHandlers(
-        BookingService(BookingRepository(session), event_bus),
-        event_bus,
-    ).register_handlers()
-    PaymentEventHandlers(
-        PaymentService(card_store, PaymentRepository(session), BookingRepository(session), event_bus),
-        event_bus,
-    ).register_handlers()
+    booking_service_factory = build_booking_service_factory(test_session_scope, event_bus)
+    payment_service_factory = build_payment_service_factory(test_session_scope, event_bus, card_store)
+    BookingEventHandlers(booking_service_factory, event_bus).register_handlers()
+    PaymentEventHandlers(payment_service_factory, event_bus).register_handlers()
 
     app = FastAPI(title="Test App", version="1.0.0")
     app.include_router(trips_router)

@@ -1,4 +1,6 @@
 import logging
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 
 from app.modules.bookings.events import (
     BookingCancelledEvent,
@@ -14,8 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class BookingEventHandlers:
-    def __init__(self, booking_service: BookingService, event_bus: EventBus):
-        self.booking_service = booking_service
+    def __init__(
+        self,
+        booking_service_factory: Callable[[], AbstractContextManager[BookingService]],
+        event_bus: EventBus,
+    ):
+        self.booking_service_factory = booking_service_factory
         self.event_bus = event_bus
 
     def handle_booking_created(self, event: BookingCreatedEvent) -> None:
@@ -49,12 +55,14 @@ class BookingEventHandlers:
     def handle_payment_succeeded(self, event: PaymentSucceededEvent) -> None:
         """Handler for PaymentSucceededEvent - confirms the booking"""
         logger.info(f"Payment succeeded for booking_id={event.booking_id}, confirming booking")
-        self.booking_service.confirm(event.booking_id)
+        with self.booking_service_factory() as booking_service:
+            booking_service.confirm(event.booking_id)
 
     def handle_payment_failed(self, event: PaymentFailedEvent) -> None:
         """Handler for PaymentFailedEvent - marks the booking as failed"""
         logger.info(f"Payment failed for booking_id={event.booking_id}, marking booking as failed")
-        self.booking_service.fail(event.booking_id)
+        with self.booking_service_factory() as booking_service:
+            booking_service.fail(event.booking_id)
 
     def register_handlers(self) -> None:
         """Register all event handlers"""

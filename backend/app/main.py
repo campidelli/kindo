@@ -2,21 +2,22 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import SQLModel, Session
+from sqlmodel import SQLModel
 
 from app.infrastructure.config import settings
 from app.infrastructure.database import engine
 from app.infrastructure.logging import configure_logging, get_logger
+from app.infrastructure.service_factories import (
+    build_booking_service_factory,
+    build_payment_service_factory,
+    get_session_scope,
+)
 from app.modules.admin.router import router as admin_router
 from app.modules.bookings.handlers import BookingEventHandlers
-from app.modules.bookings.repository import BookingRepository
 from app.modules.bookings.router import router as bookings_router
-from app.modules.bookings.service import BookingService
 from app.modules.payments.handlers import PaymentEventHandlers
-from app.modules.payments.repository import PaymentRepository
 from app.modules.payments.router import router as payments_router
 from app.modules.payments.safe_in_memory_card_store import get_card_store
-from app.modules.payments.service import PaymentService
 from app.modules.receipts import router as receipts_router
 from app.modules.trips.router import router as trips_router
 from app.shared.event_bus import get_event_bus
@@ -31,16 +32,10 @@ async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)
     event_bus = get_event_bus()
     event_bus.reset()
-    with Session(engine) as session:
-        booking_service = BookingService(BookingRepository(session), event_bus)
-        payment_service = PaymentService(
-            get_card_store(),
-            PaymentRepository(session),
-            BookingRepository(session),
-            event_bus,
-        )
-        BookingEventHandlers(booking_service, event_bus).register_handlers()
-        PaymentEventHandlers(payment_service, event_bus).register_handlers()
+    booking_service_factory = build_booking_service_factory(get_session_scope, event_bus)
+    payment_service_factory = build_payment_service_factory(get_session_scope, event_bus, get_card_store())
+    BookingEventHandlers(booking_service_factory, event_bus).register_handlers()
+    PaymentEventHandlers(payment_service_factory, event_bus).register_handlers()
     logger.info("Database ready at %s", settings.database_path)
     yield
     logger.info("Shutting down")
