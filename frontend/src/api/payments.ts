@@ -1,13 +1,13 @@
 import { apiFetch } from "./client";
-import type { PaymentCreatedResponse, PaymentDetailResponse, PaymentRequest } from "../types/api";
+import type { PaymentRequest, PaymentResponse } from "../types/api";
 
-export async function createPayment(data: PaymentRequest): Promise<PaymentCreatedResponse> {
-  return apiFetch<PaymentCreatedResponse>("/api/v1/payments", {
+export async function createPayment(data: PaymentRequest): Promise<PaymentResponse> {
+  return apiFetch<PaymentResponse>("/api/v1/payments", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
 
-export async function getPayment(paymentId: string): Promise<PaymentDetailResponse> {
-  return apiFetch<PaymentDetailResponse>(`/api/v1/payments/${paymentId}`);
+export async function getPayment(paymentId: string): Promise<PaymentResponse> {
+  return apiFetch<PaymentResponse>(`/api/v1/payments/${paymentId}`);
 }

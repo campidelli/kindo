@@ -1,8 +1,7 @@
-import type { TripResponse, PaymentDetailResponse } from "../types/api";
+import type { BookingReceiptResponse } from "../types/api";
 
 interface Props {
-  trip: TripResponse;
-  payment: PaymentDetailResponse;
+  receipt: BookingReceiptResponse;
   onDone: () => void;
 }
 
@@ -21,7 +20,8 @@ function Divider() {
   );
 }
 
-export default function PaymentReceipt({ trip, payment, onDone }: Props) {
+export default function PaymentReceipt({ receipt, onDone }: Props) {
+  const { trip, booking, payment } = receipt;
   const paidAt = new Date(payment.created_at);
   const tripDate = new Date(trip.date);
 
@@ -91,8 +91,8 @@ export default function PaymentReceipt({ trip, payment, onDone }: Props) {
             STUDENT
           </p>
           <div className="space-y-1">
-            <Row label="Name" value={payment.student_name} />
-            <Row label="Parent" value={payment.parent_name} />
+            <Row label="Name" value={booking.child_name} />
+            <Row label="Parent" value={booking.parent_name} />
           </div>
 
           <Divider />
