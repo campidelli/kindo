@@ -23,3 +23,6 @@ build/
 # IDEs
 .vscode/
 .idea/
+
+# SQLite database files
+*.db
