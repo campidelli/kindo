@@ -39,3 +39,11 @@ def get_booking(booking_id: uuid.UUID, service: BookingServiceDep):
 def create_booking(booking_data: BookingCreate, service: BookingServiceDep):
     booking = Booking(**booking_data.model_dump())
     return service.create(booking)
+
+
+@router.delete("/{booking_id}", response_model=BookingResponse) 
+def cancel_booking(booking_id: uuid.UUID, service: BookingServiceDep):
+    booking = service.cancel(booking_id)
+    if booking is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found.")
+    return booking

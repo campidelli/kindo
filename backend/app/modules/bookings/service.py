@@ -1,6 +1,6 @@
 import uuid
 
-from app.modules.bookings.events import BookingCreatedEvent
+from app.modules.bookings.events import BookingCancelledEvent, BookingCreatedEvent
 from app.modules.bookings.models import Booking
 from app.modules.bookings.repository import BookingRepository
 from app.shared.event_bus import event_bus
@@ -33,3 +33,18 @@ class BookingService:
         event_bus.publish(event)
 
         return created_booking
+
+    def cancel(self, booking_id: uuid.UUID) -> Booking | None:
+        cancelled_booking = self.repository.cancel(booking_id)
+        
+        if cancelled_booking:
+            # Publish the event
+            event = BookingCancelledEvent(
+                booking_id=cancelled_booking.id,
+                trip_id=cancelled_booking.trip_id,
+                parent_name=cancelled_booking.parent_name,
+                child_name=cancelled_booking.child_name,
+            )
+            event_bus.publish(event)
+        
+        return cancelled_booking

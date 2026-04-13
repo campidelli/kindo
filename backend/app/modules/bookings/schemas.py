@@ -10,7 +10,6 @@ class BookingCreate(BaseModel):
     trip_id: uuid.UUID
     parent_name: str
     child_name: str
-    notes: str = ""
 
 
 class BookingResponse(BaseModel):
@@ -19,7 +18,6 @@ class BookingResponse(BaseModel):
     status: BookingStatus
     parent_name: str
     child_name: str
-    notes: str
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -10,3 +10,12 @@ class BookingCreatedEvent(Event):
     trip_id: uuid.UUID
     parent_name: str
     child_name: str
+
+
+class BookingCancelledEvent(Event):
+    """Event published when a booking is cancelled"""
+
+    booking_id: uuid.UUID
+    trip_id: uuid.UUID
+    parent_name: str
+    child_name: str

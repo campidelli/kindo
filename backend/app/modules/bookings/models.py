@@ -24,6 +24,5 @@ class Booking(BaseModel, table=True):
     status: BookingStatus = Field(default=BookingStatus.PENDING_PAYMENT)
     parent_name: str
     child_name: str
-    notes: str = ""
 
     trip: "Trip" = Relationship(back_populates="bookings")
