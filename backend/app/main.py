@@ -4,11 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel
 
-from app.core.config import settings
-from app.core.database import engine
-from app.core.logging import configure_logging, get_logger
+from app.infrastructure.config import settings
+from app.infrastructure.database import engine
+from app.infrastructure.logging import configure_logging, get_logger
+from app.modules.admin.router import router as admin_router
+from app.modules.bookings.router import router as bookings_router
+from app.modules.payments.router import router as payments_router
 from app.modules.receipts import router as receipts_router
-from app.routers import admin, payments, trips
+from app.modules.trips.router import router as trips_router
 
 logger = get_logger(__name__)
 
@@ -36,7 +39,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(trips.router)
-app.include_router(payments.router)
+app.include_router(trips_router)
+app.include_router(bookings_router)
+app.include_router(payments_router)
 app.include_router(receipts_router)
-app.include_router(admin.router)
+app.include_router(admin_router)

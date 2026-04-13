@@ -1,14 +1,12 @@
 import logging
 import sys
 
-from app.core.config import settings
+from app.infrastructure.config import settings
 
 
 def configure_logging() -> None:
-    level = logging.getLevelName(settings.log_level.upper())
-
     logging.basicConfig(
-        level=level,
+        level=settings.log_level.upper(),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S",
         stream=sys.stdout,

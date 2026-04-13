@@ -5,13 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from app.infrastructure.database import get_session
-from app.modules.payments.repository import PaymentRepository
-from app.modules.payments.schemas import PaymentCreate, PaymentCreateRequest, PaymentResponse
-from app.modules.payments.service import PaymentService
 from app.modules.bookings.repository import BookingRepository
+from app.modules.payments.repository import PaymentRepository
+from app.modules.payments.schemas import PaymentCreateRequest, PaymentResponse
+from app.modules.payments.service import PaymentService
 from app.modules.payments.safe_in_memory_card_store import get_card_store
 from app.shared.event_bus import EventBus, get_event_bus
-from backend.tests.test_payment_service import payment_data
 
 router = APIRouter(prefix="/api/v1/payments", tags=["payments"])
 

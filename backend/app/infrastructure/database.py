@@ -1,6 +1,6 @@
 from sqlmodel import Session, create_engine
 
-from app.core.config import settings
+from app.infrastructure.config import settings
 
 DATABASE_URL = f"sqlite:///{settings.database_path}"
 

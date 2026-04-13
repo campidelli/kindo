@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     log_level: str = "INFO"
     cors_origins: list[str] = ["*"]
-    database_path: str = "app/data/kindo.db"
+    database_path: str = "app/infrastructure/kindo.db"
     environment: str = "development"
 
     def get_cors_origins(self) -> list[str]:
