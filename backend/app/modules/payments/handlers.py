@@ -2,7 +2,7 @@ import logging
 
 from app.modules.payments.events import PaymentCreatedEvent
 from app.modules.payments.service import PaymentService
-from app.shared.event_bus import event_bus
+from app.shared.event_bus import get_event_bus
 
 logger = logging.getLogger(__name__)
 
@@ -21,4 +21,4 @@ class PaymentEventHandlers:
 
     def register_handlers(self) -> None:
         """Register all event handlers"""
-        event_bus.subscribe(PaymentCreatedEvent, self.handle_payment_created)
+        get_event_bus().subscribe(PaymentCreatedEvent, self.handle_payment_created)

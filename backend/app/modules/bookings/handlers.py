@@ -8,7 +8,7 @@ from app.modules.bookings.events import (
 )
 from app.modules.bookings.service import BookingService
 from app.modules.payments.events import PaymentSucceededEvent, PaymentFailedEvent
-from app.shared.event_bus import event_bus
+from app.shared.event_bus import get_event_bus
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +57,10 @@ class BookingEventHandlers:
 
     def register_handlers(self) -> None:
         """Register all event handlers"""
-        event_bus.subscribe(BookingCreatedEvent, self.handle_booking_created)
-        event_bus.subscribe(BookingCancelledEvent, self.handle_booking_cancelled)
-        event_bus.subscribe(BookingConfirmedEvent, self.handle_booking_confirmed)
-        event_bus.subscribe(BookingFailedEvent, self.handle_booking_failed)
-        event_bus.subscribe(PaymentSucceededEvent, self.handle_payment_completed)
-        event_bus.subscribe(PaymentFailedEvent, self.handle_payment_failed)
+        bus = get_event_bus()
+        bus.subscribe(BookingCreatedEvent, self.handle_booking_created)
+        bus.subscribe(BookingCancelledEvent, self.handle_booking_cancelled)
+        bus.subscribe(BookingConfirmedEvent, self.handle_booking_confirmed)
+        bus.subscribe(BookingFailedEvent, self.handle_booking_failed)
+        bus.subscribe(PaymentSucceededEvent, self.handle_payment_completed)
+        bus.subscribe(PaymentFailedEvent, self.handle_payment_failed)

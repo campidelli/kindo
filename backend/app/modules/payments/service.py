@@ -8,7 +8,6 @@ from app.modules.payments.repository import PaymentRepository
 from app.modules.payments.safe_in_memory_card_store import CardData, get_card_store
 from app.modules.bookings.repository import BookingRepository
 from app.shared.event_bus import EventBus
-from backend.app.models import payment
 
 logger = logging.getLogger(__name__)
 payment_processor = LegacyPaymentProcessor()
