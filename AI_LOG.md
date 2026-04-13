@@ -318,6 +318,79 @@
 **AI actions:**
 - Added `PATCH /api/v1/payments/{payment_id}/retry` endpoint to `app/routers/payments.py`
 - Returns 404 if payment not found
+
+---
+
+## Session 2 — 2026-04-13
+
+### Prompt
+> "I want to modify the backend. Let's use an event driven approach. Under app/ add 3 folders: modules, shared and infrastructure"
+
+**AI actions:**
+- Refactored the backend into `app/modules`, `app/shared`, and `app/infrastructure`
+- Moved the previous flat structure into module boundaries for `trips`, `bookings`, `payments`, `receipts`, and `admin`
+- Added shared `BaseModel` and an in-memory `EventBus`
+
+### Prompt
+> "for bookings and payments, add 2 more files: events and handlers"
+
+**AI actions:**
+- Added domain events for bookings and payments
+- Added booking and payment event handlers
+- Wired payment outcomes to booking confirmation/failure
+
+### Prompt
+> "based on what we had previously, let's implement the trips module" / "for bookings..." / "now we implement payments" / "now for the receipts"
+
+**AI actions:**
+- Implemented `trips` module for read-only trip retrieval
+- Implemented `bookings` module with create, list, get-by-id, and cancel flows
+- Implemented `payments` module with `booking_id`-based payment creation, in-memory card storage, and legacy processor integration
+- Implemented `receipts` module to project booking, trip, and latest payment into a single receipt response
+
+### Prompt
+> "add a new module called admin and add a method called seed to its service"
+
+**AI actions:**
+- Added `admin` module with `POST /api/v1/admin/seed`
+- Moved seed behavior into `AdminService`
+- Removed the old health endpoint
+
+### Prompt
+> "move kindo.db into infrastructure and delete the data and core folders" / follow-up fixes
+
+**AI actions:**
+- Consolidated config, logging, and DB access under `app/infrastructure`
+- Moved the SQLite file to `backend/kindo.db`
+- Fixed DB path resolution so the app works regardless of process working directory
+- Removed the obsolete `core` and `data` folders
+
+### Prompt
+> "Can I avoid this back_populates? I want trips to know no module, bookings to know trips and payments to know bookings"
+
+**AI actions:**
+- Removed reverse relationships from `Trip`
+- Kept dependency direction one-way: `Booking -> Trip` and `Payment -> Booking`
+- Fixed foreign key table names to match current module table names
+
+### Prompt
+> "let's update the unit and integration tests"
+
+**AI actions:**
+- Rewrote the backend test suite for the modular architecture
+- Added booking service unit tests
+- Replaced stale integration tests with a full API flow test covering trips, bookings, payments, and receipts
+- Fixed receipt schema validation for ORM objects
+- Verified the suite passes: `23 passed`
+
+### Prompt
+> "let's use the factories then"
+
+**AI actions:**
+- Added infrastructure-level service factories for event handlers
+- Updated event handlers to depend on service factories instead of startup-created services
+- Kept `get_session` for FastAPI request DI and introduced a separate session scope for internal event wiring
+- Verified the backend test suite still passes after the refactor
 - Returns 409 if payment is not in FAILED status
 - Creates a new background task to reprocess the payment
 - Returns 200 with the current payment state
