@@ -41,6 +41,7 @@ class BookingService:
         return created_booking
 
     def cancel(self, booking_id: uuid.UUID) -> Booking | None:
+        # NOTE: in a real world application, if a booking is confirmed and we cancel it, we need to rollback the payment
         cancelled_booking = self.repository.cancel(booking_id)
         
         if cancelled_booking:
