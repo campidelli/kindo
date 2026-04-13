@@ -4,10 +4,23 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel
 
-from app.core.config import settings
-from app.core.database import engine
-from app.core.logging import configure_logging, get_logger
-from app.routers import admin, payments, trips
+from app.infrastructure.config import settings
+from app.infrastructure.database import engine
+from app.infrastructure.logging import configure_logging, get_logger
+from app.infrastructure.service_factories import (
+    build_booking_service_factory,
+    build_payment_service_factory,
+    get_session_scope,
+)
+from app.modules.admin.router import router as admin_router
+from app.modules.bookings.handlers import BookingEventHandlers
+from app.modules.bookings.router import router as bookings_router
+from app.modules.payments.handlers import PaymentEventHandlers
+from app.modules.payments.router import router as payments_router
+from app.modules.payments.safe_in_memory_card_store import get_card_store
+from app.modules.receipts import router as receipts_router
+from app.modules.trips.router import router as trips_router
+from app.shared.event_bus import get_event_bus
 
 logger = get_logger(__name__)
 
@@ -17,6 +30,12 @@ async def lifespan(app: FastAPI):
     configure_logging()
     logger.info("Starting %s v%s", settings.app_name, settings.app_version)
     SQLModel.metadata.create_all(engine)
+    event_bus = get_event_bus()
+    event_bus.reset()
+    booking_service_factory = build_booking_service_factory(get_session_scope, event_bus)
+    payment_service_factory = build_payment_service_factory(get_session_scope, event_bus, get_card_store())
+    BookingEventHandlers(booking_service_factory, event_bus).register_handlers()
+    PaymentEventHandlers(payment_service_factory, event_bus).register_handlers()
     logger.info("Database ready at %s", settings.database_path)
     yield
     logger.info("Shutting down")
@@ -35,6 +54,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(trips.router)
-app.include_router(payments.router)
-app.include_router(admin.router)
+app.include_router(trips_router)
+app.include_router(bookings_router)
+app.include_router(payments_router)
+app.include_router(receipts_router)
+app.include_router(admin_router)

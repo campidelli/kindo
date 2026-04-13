@@ -1,18 +1,21 @@
 # Kindo School Payments — Backend
 
-FastAPI backend for the Kindo school trip payment challenge. Manages trips and processes payments via a legacy payment processor integration.
+FastAPI backend for the Kindo school trip payment challenge. The backend is organized by modules and uses an in-process event bus to coordinate booking confirmation and payment processing.
 
 ---
 
 ## Features
 
 - List and fetch school trips
-- Create payments for a trip with card details (only last 4 digits stored)
-- Asynchronous payment processing via a legacy processor integration — does not block the API response
-- Poll payment status by ID (PENDING → SUCCESS / FAILED)
+- Create bookings for trips and cancel them
+- Create payments for a booking with card details (only last 4 digits stored)
+- Process payments via a legacy processor integration triggered by domain events
+- Confirm or fail bookings based on payment outcomes
+- Build booking receipts by combining booking, trip, and payment data
 - Seed endpoint to populate sample data after deployment
 - Structured logging with configurable log levels
 - Environment-based configuration via `.env`
+- Unit and integration tests for the current module boundaries and API flow
 
 ---
 
@@ -34,22 +37,23 @@ FastAPI backend for the Kindo school trip payment challenge. Manages trips and p
 ```
 backend/
 ├── app/
-│   ├── core/           # config, database, logging
-│   ├── enums/          # PaymentStatus enum
-│   ├── models/         # SQLModel table definitions
-│   ├── schemas/        # Pydantic request/response schemas
-│   ├── repositories/   # Data access layer
-│   ├── services/       # Business logic
-│   ├── routers/        # API route handlers
-│   ├── integrations/   # Legacy payment processor wrapper
-│   └── data/           # seed.py + kindo.db (SQLite)
+│   ├── infrastructure/     # config, database, logging, service factories
+│   ├── modules/
+│   │   ├── admin/
+│   │   ├── bookings/
+│   │   ├── payments/
+│   │   ├── receipts/
+│   │   └── trips/
+│   ├── shared/             # base model + event bus
+│   └── main.py
 ├── tests/
+│   ├── conftest.py
+│   ├── test_booking_service.py
+│   ├── test_integration.py
 │   ├── test_trip_service.py
 │   ├── test_payment_service.py
-│   ├── test_trips_integration.py
-│   └── test_payments_integration.py
 ├── .env
-├── .env.example
+├── kindo.db
 ├── requirements.txt
 ├── pytest.ini
 └── render.yaml
@@ -70,30 +74,57 @@ backend/
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/v1/payments` | List all payments (most recent first) |
-| `POST` | `/api/v1/payments` | Create a payment (returns `201 PENDING`) |
+| `GET` | `/api/v1/payments` | List all payments |
+| `POST` | `/api/v1/payments` | Create a payment for a booking |
 | `GET` | `/api/v1/payments/{payment_id}` | Get current payment status |
 
 **POST `/api/v1/payments` request body:**
 ```json
 {
-  "trip_id": "uuid",
-  "student_name": "Jane Doe",
-  "parent_name": "John Doe",
+  "booking_id": "uuid",
   "card_number": "4111111111111111",
-  "expiry_date": "12/27",
+  "expiry_month": 12,
+  "expiry_year": 2027,
   "cvv": "123"
 }
 ```
 
-Payment processing runs as a background task. Poll `GET /api/v1/payments/{id}` to check the result (`PENDING`, `SUCCESS`, or `FAILED`).
+### Bookings
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/bookings` | List all bookings |
+| `GET` | `/api/v1/bookings/{booking_id}` | Get a booking by ID |
+| `POST` | `/api/v1/bookings` | Create a booking for a trip |
+| `DELETE` | `/api/v1/bookings/{booking_id}` | Cancel a booking |
+
+**POST `/api/v1/bookings` request body:**
+```json
+{
+  "trip_id": "uuid",
+  "parent_name": "John Doe",
+  "child_name": "Jane Doe"
+}
+```
+
+### Receipts
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/receipts/bookings/{booking_id}` | Get a receipt projection for a booking |
 
 ### Admin
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/admin/seed` | Seed database with sample trip |
-| `GET` | `/admin/health` | Health check |
+| `POST` | `/api/v1/admin/seed` | Seed database with sample trips |
+
+## Architecture
+
+- Routers use FastAPI dependency providers such as `get_session` for request-scoped work
+- Event handlers use explicit service factories so each event gets a fresh `Session`
+- `BookingCreatedEvent`, `PaymentCreatedEvent`, `PaymentSucceededEvent`, and `PaymentFailedEvent` coordinate the booking/payment lifecycle
+- Card data is stored only in a process-local in-memory store long enough to complete payment processing
 
 ---
 
@@ -105,9 +136,6 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Copy and configure environment
-cp .env.example .env
-
 # Start the server
 uvicorn app.main:app --reload
 ```
@@ -116,9 +144,7 @@ API docs available at `http://localhost:8000/docs`.
 
 To seed sample data:
 ```bash
-curl -X POST http://localhost:8000/admin/seed
-# or run directly
-python -m app.data.seed
+curl -X POST http://localhost:8000/api/v1/admin/seed
 ```
 
 ---
@@ -127,18 +153,18 @@ python -m app.data.seed
 
 ```bash
 # All tests
-pytest tests/ -v
+pytest -q
 
-# Unit tests only (services, no I/O)
-pytest tests/test_trip_service.py tests/test_payment_service.py -v
+# Unit tests only
+pytest tests/test_trip_service.py tests/test_booking_service.py tests/test_payment_service.py -q
 
-# Integration tests only (full HTTP flow, in-memory SQLite)
-pytest tests/test_trips_integration.py tests/test_payments_integration.py -v
+# Integration flow
+pytest tests/test_integration.py -q
 ```
 
-**28 tests — 15 unit, 13 integration — all passing in ~0.3s.**
+**23 tests — all passing.**
 
-Unit tests mock all repositories and the legacy processor. Integration tests use an in-memory SQLite database and FastAPI's `TestClient`. No network or file I/O required.
+Unit tests mock repositories, services, and the legacy processor where appropriate. Integration tests use an in-memory SQLite database, the real routers, and the real event bus wiring.
 
 ---
 
@@ -150,7 +176,7 @@ The backend is deployed on Render.com as a Web Service configured via `render.ya
 
 Post-deployment, seed the database:
 ```bash
-curl -X POST https://kindo-api-3y26.onrender.com/admin/seed
+curl -X POST https://kindo-api-3y26.onrender.com/api/v1/admin/seed
 ```
 
 Key environment variables (set in Render dashboard):
@@ -165,10 +191,10 @@ Key environment variables (set in Render dashboard):
 
 ## Assumptions & Constraints
 
-- **One active trip** is seeded as sample data; the UI assumes at least one trip exists
+- **Sample trips must be seeded** before local or deployed use via `/api/v1/admin/seed`
 - **Card data is not stored** — only the last 4 digits of the card number are persisted, as per PCI-DSS guidance
 - **Legacy processor is a stub** — the integration simulates a real processor and may return FAILED responses randomly
-- **Payment status is eventually consistent** — clients must poll `GET /api/v1/payments/{id}` to get the final result
+- **Payment processing is in-process** — suitable for the challenge, but not durable like a real queue/worker setup
 - **No authentication** — all endpoints are public, including `/admin/seed`
 - **SQLite is not suitable for concurrent writes** — acceptable for this challenge, not for production
 - **Free-tier SQLite does not persist** between Render redeploys — data is lost on each deploy

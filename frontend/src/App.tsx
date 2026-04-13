@@ -5,8 +5,10 @@ import PaymentForm, { type CardData } from "./components/PaymentForm";
 import ProcessingModal from "./components/ProcessingModal";
 import Toast from "./components/Toast";
 import PaymentReceipt from "./components/PaymentReceipt";
-import type { TripResponse, PaymentDetailResponse } from "./types/api";
+import type { BookingReceiptResponse, BookingResponse, TripResponse } from "./types/api";
+import { createBooking } from "./api/bookings";
 import { createPayment, getPayment } from "./api/payments";
+import { getBookingReceipt } from "./api/receipts";
 import { ApiError } from "./api/client";
 
 const POLL_INTERVAL_MS = 2_000;
@@ -22,10 +24,11 @@ interface ToastState {
 export default function App() {
   const [screen, setScreen] = useState<Screen>("trips");
   const [selectedTrip, setSelectedTrip] = useState<TripResponse | null>(null);
+  const [currentBooking, setCurrentBooking] = useState<BookingResponse | null>(null);
   const [registration, setRegistration] = useState<RegistrationData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [paymentDetail, setPaymentDetail] = useState<PaymentDetailResponse | null>(null);
+  const [receipt, setReceipt] = useState<BookingReceiptResponse | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -41,28 +44,57 @@ export default function App() {
 
   function handleBook(trip: TripResponse) {
     setSelectedTrip(trip);
+    setCurrentBooking(null);
+    setRegistration(null);
     navigate("registration");
   }
 
-  function handleRegistrationContinue(data: RegistrationData) {
-    setRegistration(data);
-    navigate("payment");
+  async function handleRegistrationContinue(data: RegistrationData) {
+    try {
+      const shouldReuseBooking =
+        currentBooking !== null
+        && selectedTrip !== null
+        && currentBooking.trip_id === selectedTrip.id
+        && currentBooking.parent_name === data.parent_name
+        && currentBooking.child_name === data.student_name
+        && currentBooking.status === "PENDING_PAYMENT";
+
+      setRegistration(data);
+
+      if (shouldReuseBooking) {
+        navigate("payment");
+        return;
+      }
+
+      const booking = await createBooking({
+        trip_id: selectedTrip!.id,
+        parent_name: data.parent_name,
+        child_name: data.student_name,
+      });
+
+      setCurrentBooking(booking);
+      navigate("payment");
+    } catch (err) {
+      setToast({
+        message: err instanceof ApiError ? err.message : "Failed to create booking.",
+        type: "error",
+      });
+    }
   }
 
   async function handlePaymentConfirm(cardData: CardData) {
-    try {
-      const result = await createPayment({
-        trip_id: selectedTrip!.id,
-        student_name: registration!.student_name,
-        parent_name: registration!.parent_name,
-        card_number: cardData.card_number,
-        expiry_date: cardData.expiry_date,
-        cvv: cardData.cvv,
-      });
+    setIsProcessing(true);
+    const controller = new AbortController();
+    let didTimeout = false;
 
-      setIsProcessing(true);
+    try {
+      if (currentBooking === null) {
+        throw new Error("Booking not found.");
+      }
 
       timeoutRef.current = setTimeout(() => {
+        didTimeout = true;
+        controller.abort();
         stopPolling();
         setIsProcessing(false);
         setToast({
@@ -71,15 +103,39 @@ export default function App() {
         });
       }, PAYMENT_TIMEOUT_MS);
 
+      const [expiryMonth, expiryYear] = cardData.expiry_date.split("/");
+      const result = await createPayment({
+        booking_id: currentBooking.id,
+        card_number: cardData.card_number,
+        expiry_month: Number(expiryMonth),
+        expiry_year: Number(`20${expiryYear}`),
+        cvv: cardData.cvv,
+      }, controller.signal);
+
+      if (didTimeout) {
+        return;
+      }
+
       pollingRef.current = setInterval(async () => {
         try {
-          const detail = await getPayment(result.payment_id);
+          const detail = await getPayment(result.id, controller.signal);
+
+          if (didTimeout) {
+            return;
+          }
+
           const normalizedStatus = detail.status.toLowerCase();
 
           if (normalizedStatus === "success") {
             stopPolling();
             setIsProcessing(false);
-            setPaymentDetail(detail);
+            const nextReceipt = await getBookingReceipt(currentBooking.id, controller.signal);
+
+            if (didTimeout) {
+              return;
+            }
+
+            setReceipt(nextReceipt);
             setScreen("success");
             setToast({ message: "Payment confirmed!", type: "success" });
           } else if (normalizedStatus === "failed") {
@@ -91,6 +147,10 @@ export default function App() {
             });
           }
         } catch (err) {
+          if (didTimeout || (err instanceof DOMException && err.name === "AbortError")) {
+            return;
+          }
+
           stopPolling();
           setIsProcessing(false);
           setToast({
@@ -100,6 +160,12 @@ export default function App() {
         }
       }, POLL_INTERVAL_MS);
     } catch (err) {
+      if (didTimeout || (err instanceof DOMException && err.name === "AbortError")) {
+        return;
+      }
+
+      stopPolling();
+      setIsProcessing(false);
       setToast({
         message: err instanceof ApiError ? err.message : "Failed to submit payment.",
         type: "error",
@@ -113,14 +179,17 @@ export default function App() {
         <RegistrationForm
           trip={selectedTrip}
           onContinue={handleRegistrationContinue}
-          onCancel={() => navigate("trips")}
+          onCancel={() => {
+            setCurrentBooking(null);
+            navigate("trips");
+          }}
         />
         <Toast message={toast?.message ?? null} type={toast?.type ?? "error"} onDismiss={() => setToast(null)} />
       </>
     );
   }
 
-  if (screen === "payment" && selectedTrip && registration) {
+  if (screen === "payment" && selectedTrip && registration && currentBooking) {
     return (
       <>
         <PaymentForm
@@ -135,13 +204,12 @@ export default function App() {
     );
   }
 
-  if (screen === "success" && selectedTrip && paymentDetail) {
+  if (screen === "success" && receipt) {
     return (
       <>
         <PaymentReceipt
-          trip={selectedTrip}
-          payment={paymentDetail}
-          onDone={() => { navigate("trips"); setSelectedTrip(null); setRegistration(null); setPaymentDetail(null); }}
+          receipt={receipt}
+          onDone={() => { navigate("trips"); setSelectedTrip(null); setCurrentBooking(null); setRegistration(null); setReceipt(null); }}
         />
         <Toast message={toast?.message ?? null} type={toast?.type ?? "success"} onDismiss={() => setToast(null)} />
       </>

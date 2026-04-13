@@ -36,21 +36,24 @@ curl -X 'POST' \
 - View individual trip details
 
 **Payment flow**
-- Multi-step wizard: trip selection → student & parent registration → card entry → receipt
+- Multi-step wizard: trip selection → student & parent registration (creates a booking) → card entry → receipt
 - Card validation via Luhn algorithm (card number, expiry, CVV)
 - Card number auto-formatted in groups of 4; auto-advances to the next field on completion
 - Payment processing via a legacy processor integration (runs as a background task — does not block the API response)
 - Real-time polling every 2 seconds until the payment resolves to `success` or `failed`
-- Configurable payment timeout (default 30 s) — shows a warning toast if processing takes too long
+- Configurable payment timeout (default 30 s) — covers the full operation from initial POST; shows a warning toast if processing takes too long
 - Error toasts for failed payments, network errors, and validation failures
-- On success, displays a thermal EFTPOS-style receipt with masked card number
+- On success, fetches a full receipt from the receipts API and displays it as a thermal EFTPOS-style receipt with masked card number
 
 **Backend**
 - `GET /api/v1/trips` — list all trips
 - `GET /api/v1/trips/{id}` — get a trip by ID
+- `POST /api/v1/bookings` — create a booking (returns `201 PENDING_PAYMENT`)
+- `GET /api/v1/bookings/{id}` — get a booking by ID
 - `GET /api/v1/payments` — list all payments
-- `POST /api/v1/payments` — create a payment (returns `201 PENDING`)
+- `POST /api/v1/payments` — create a payment against a booking (returns `201 PENDING`)
 - `GET /api/v1/payments/{id}` — poll payment status
+- `GET /api/v1/receipts/bookings/{id}` — get full receipt for a completed booking
 - `POST /api/v1/admin/seed` — seed sample trip data
 - `GET /api/v1/admin/health` — health check
 

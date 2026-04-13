@@ -318,6 +318,79 @@
 **AI actions:**
 - Added `PATCH /api/v1/payments/{payment_id}/retry` endpoint to `app/routers/payments.py`
 - Returns 404 if payment not found
+
+---
+
+## Session 2 — 2026-04-13
+
+### Prompt
+> "I want to modify the backend. Let's use an event driven approach. Under app/ add 3 folders: modules, shared and infrastructure"
+
+**AI actions:**
+- Refactored the backend into `app/modules`, `app/shared`, and `app/infrastructure`
+- Moved the previous flat structure into module boundaries for `trips`, `bookings`, `payments`, `receipts`, and `admin`
+- Added shared `BaseModel` and an in-memory `EventBus`
+
+### Prompt
+> "for bookings and payments, add 2 more files: events and handlers"
+
+**AI actions:**
+- Added domain events for bookings and payments
+- Added booking and payment event handlers
+- Wired payment outcomes to booking confirmation/failure
+
+### Prompt
+> "based on what we had previously, let's implement the trips module" / "for bookings..." / "now we implement payments" / "now for the receipts"
+
+**AI actions:**
+- Implemented `trips` module for read-only trip retrieval
+- Implemented `bookings` module with create, list, get-by-id, and cancel flows
+- Implemented `payments` module with `booking_id`-based payment creation, in-memory card storage, and legacy processor integration
+- Implemented `receipts` module to project booking, trip, and latest payment into a single receipt response
+
+### Prompt
+> "add a new module called admin and add a method called seed to its service"
+
+**AI actions:**
+- Added `admin` module with `POST /api/v1/admin/seed`
+- Moved seed behavior into `AdminService`
+- Removed the old health endpoint
+
+### Prompt
+> "move kindo.db into infrastructure and delete the data and core folders" / follow-up fixes
+
+**AI actions:**
+- Consolidated config, logging, and DB access under `app/infrastructure`
+- Moved the SQLite file to `backend/kindo.db`
+- Fixed DB path resolution so the app works regardless of process working directory
+- Removed the obsolete `core` and `data` folders
+
+### Prompt
+> "Can I avoid this back_populates? I want trips to know no module, bookings to know trips and payments to know bookings"
+
+**AI actions:**
+- Removed reverse relationships from `Trip`
+- Kept dependency direction one-way: `Booking -> Trip` and `Payment -> Booking`
+- Fixed foreign key table names to match current module table names
+
+### Prompt
+> "let's update the unit and integration tests"
+
+**AI actions:**
+- Rewrote the backend test suite for the modular architecture
+- Added booking service unit tests
+- Replaced stale integration tests with a full API flow test covering trips, bookings, payments, and receipts
+- Fixed receipt schema validation for ORM objects
+- Verified the suite passes: `23 passed`
+
+### Prompt
+> "let's use the factories then"
+
+**AI actions:**
+- Added infrastructure-level service factories for event handlers
+- Updated event handlers to depend on service factories instead of startup-created services
+- Kept `get_session` for FastAPI request DI and introduced a separate session scope for internal event wiring
+- Verified the backend test suite still passes after the refactor
 - Returns 409 if payment is not in FAILED status
 - Creates a new background task to reprocess the payment
 - Returns 200 with the current payment state
@@ -685,4 +758,81 @@
 
 **AI actions:**
 - Appended Prompts 55–59 to this log
+
+---
+
+## Session 3 — 2026-04-13
+
+### Prompt 60
+> "I want to modify the backend. Let's use an event driven approach. Under app/ add 3 folders: modules, shared and infrastructure" / "for bookings and payments, add 2 more files: events and handlers" / module implementation prompts / "let's update the unit and integration tests" / "let's use the factories then"
+
+**AI actions (summarised — full detail in backend README):**
+- Refactored backend into `app/modules`, `app/shared`, and `app/infrastructure`
+- Implemented `trips`, `bookings`, `payments`, `receipts`, and `admin` modules
+- Added `EventBus` with `subscribe()`, `publish()`, and `reset()` to `app/shared/event_bus.py`
+- Added domain events and handlers for `bookings` and `payments`; handlers wired via event bus subscriptions
+- Introduced `app/infrastructure/service_factories.py` with `get_session_scope`, `build_booking_service_factory`, and `build_payment_service_factory` so each event handler gets a fresh session per invocation rather than holding a startup-created session
+- Fixed one-way SQLModel relationships: `Booking → Trip` and `Payment → Booking` (no `back_populates`)
+- Fixed handler method name typo (`handle_payment_completed` → `handle_payment_succeeded`)
+- Added `model_config = {"from_attributes": True}` to all receipt sub-schemas
+- Rewrote backend test suite for the modular architecture; 23 tests passing
+
+---
+
+### Prompt 61
+> "frontend time now. I think the most different part is the receipt, but let's go through all existent features and change them if needed. We are not implementing any new features now."
+
+**AI actions:**
+- Updated `frontend/src/types/api.ts` to match the bookings-first backend contract:
+  - Removed `trip_id`, `student_name`, `parent_name`, `expiry_date` from `PaymentRequest`
+  - Added `BookingResponse`, `PaymentResponse`, `ReceiptTrip`, `ReceiptBooking`, `ReceiptPayment`, `BookingReceiptResponse`
+  - `PaymentRequest` now requires `booking_id`, `expiry_month: number`, `expiry_year: number`
+- Created `frontend/src/api/bookings.ts` with `createBooking()`
+- Created `frontend/src/api/receipts.ts` with `getBookingReceipt()`
+- Updated `frontend/src/api/payments.ts` to pass `booking_id` and split expiry fields
+- Updated `frontend/src/components/PaymentReceipt.tsx` to accept `receipt: BookingReceiptResponse` (fetched from receipts endpoint) instead of raw payment data
+- Updated `App.tsx` to add `currentBooking` state and pass `booking_id` to `createPayment`; on success, calls `GET /api/v1/receipts/bookings/{id}` to fetch the receipt
+- All 29 frontend tests passing, build passing
+
+---
+
+### Prompt 62
+> "now we need to create a booking after inputing the parent and child name, then with the booking id in hands we proceed to the payment phase"
+
+**AI actions:**
+- Moved `createBooking()` call from `handlePaymentConfirm` into `handleRegistrationContinue` in `App.tsx`
+- Registration step is now async — calls `POST /api/v1/bookings`, stores the result in `currentBooking` state, then navigates to the payment screen
+- Added booking reuse guard: if the user navigates back and re-submits the same trip/parent/child combination with a `PENDING_PAYMENT` booking already in state, the existing booking is reused and no duplicate is created
+- Payment step reads `currentBooking.id` directly; the `onCancel` handler on the registration form clears `currentBooking`
+
+---
+
+### Prompt 63
+> "the loading modal isn't being shown when clicking pay"
+
+**AI actions:**
+- Root cause: `setIsProcessing(true)` was called after `createPayment()` resolved (inside the `.then()` / `try` block after the `await`), so the modal only appeared once the slow backend returned
+- Fixed by moving `setIsProcessing(true)` to the very first line of `handlePaymentConfirm()`, before any async work
+
+---
+
+### Prompt 64
+> "I changed the processing simulator to 35 seconds, it should timeout on the front end, but it does not"
+
+**AI actions:**
+- Root cause: the `AbortController` and `setTimeout` for the payment timeout were created inside the `try` block after `const result = await createPayment(...)`. If the backend took longer than `VITE_PAYMENT_TIMEOUT_MS` for the POST itself, the timeout was never started
+- Fixed: moved `const controller = new AbortController()` and `let didTimeout = false` to before the `try` block; moved the `setTimeout` call to immediately before `createPayment()`
+- Added optional `signal?: AbortSignal` to `createPayment`, `getPayment` (in `api/payments.ts`) and `getBookingReceipt` (in `api/receipts.ts`); each passes the signal through to the underlying `apiFetch` call
+- Added `didTimeout` guard checks in the polling callback and all catch branches to prevent spurious state updates after the timeout fires and the signal is aborted
+- 29 tests still passing, build still passing
+
+---
+
+### Prompt 65
+> "update front end readme and ai log" / "also update the root readme"
+
+**AI actions:**
+- Updated `frontend/README.md`: revised screen flow diagram and per-screen descriptions to reflect booking creation at registration, booking reuse logic, immediate modal on Pay click, timeout covering the full payment operation, and receipt fetched from receipts API; added booking failure scenario to error handling table; expanded assumptions & constraints
+- Updated `README.md` (root): added bookings and receipts endpoints to the API capabilities section; updated the payment flow description to mention the booking step
+- Updated `AI_LOG.md` (this file) with Session 3 entries (Prompts 60–65)
 
