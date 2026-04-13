@@ -83,23 +83,18 @@ export default function App() {
   }
 
   async function handlePaymentConfirm(cardData: CardData) {
+    setIsProcessing(true);
+    const controller = new AbortController();
+    let didTimeout = false;
+
     try {
       if (currentBooking === null) {
         throw new Error("Booking not found.");
       }
 
-      const [expiryMonth, expiryYear] = cardData.expiry_date.split("/");
-      const result = await createPayment({
-        booking_id: currentBooking.id,
-        card_number: cardData.card_number,
-        expiry_month: Number(expiryMonth),
-        expiry_year: Number(`20${expiryYear}`),
-        cvv: cardData.cvv,
-      });
-
-      setIsProcessing(true);
-
       timeoutRef.current = setTimeout(() => {
+        didTimeout = true;
+        controller.abort();
         stopPolling();
         setIsProcessing(false);
         setToast({
@@ -108,15 +103,38 @@ export default function App() {
         });
       }, PAYMENT_TIMEOUT_MS);
 
+      const [expiryMonth, expiryYear] = cardData.expiry_date.split("/");
+      const result = await createPayment({
+        booking_id: currentBooking.id,
+        card_number: cardData.card_number,
+        expiry_month: Number(expiryMonth),
+        expiry_year: Number(`20${expiryYear}`),
+        cvv: cardData.cvv,
+      }, controller.signal);
+
+      if (didTimeout) {
+        return;
+      }
+
       pollingRef.current = setInterval(async () => {
         try {
-          const detail = await getPayment(result.id);
+          const detail = await getPayment(result.id, controller.signal);
+
+          if (didTimeout) {
+            return;
+          }
+
           const normalizedStatus = detail.status.toLowerCase();
 
           if (normalizedStatus === "success") {
             stopPolling();
             setIsProcessing(false);
-            const nextReceipt = await getBookingReceipt(currentBooking.id);
+            const nextReceipt = await getBookingReceipt(currentBooking.id, controller.signal);
+
+            if (didTimeout) {
+              return;
+            }
+
             setReceipt(nextReceipt);
             setScreen("success");
             setToast({ message: "Payment confirmed!", type: "success" });
@@ -129,6 +147,10 @@ export default function App() {
             });
           }
         } catch (err) {
+          if (didTimeout || (err instanceof DOMException && err.name === "AbortError")) {
+            return;
+          }
+
           stopPolling();
           setIsProcessing(false);
           setToast({
@@ -138,6 +160,12 @@ export default function App() {
         }
       }, POLL_INTERVAL_MS);
     } catch (err) {
+      if (didTimeout || (err instanceof DOMException && err.name === "AbortError")) {
+        return;
+      }
+
+      stopPolling();
+      setIsProcessing(false);
       setToast({
         message: err instanceof ApiError ? err.message : "Failed to submit payment.",
         type: "error",
